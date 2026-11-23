@@ -4,324 +4,145 @@ import { useState } from "react"
 import CameraView from "@/components/camera-view"
 import PhotoStrip from "@/components/photo-strip"
 import TemplateSelector from "@/components/template-selector"
+import BrowserCheck from "@/components/browser-check"
 import { Button } from "@/components/ui/button"
 import { templates } from "@/lib/templates"
-import LoadingSpinner from "@/components/loading-spinner"
-import BrowserCheck from "@/components/browser-check"
-import { RefreshCw } from "lucide-react"
+import { ArrowLeft, ArrowRight, Camera, Download, RotateCcw, Check } from "lucide-react"
+
+type Step = "welcome" | "layout" | "capture" | "customize" | "download"
+const steps: Step[] = ["welcome", "layout", "capture", "customize", "download"]
+const layouts = [
+  { id: "classic", title: "Classic Strip", count: 3, description: "3 foto vertikal" },
+  { id: "four", title: "Four Moments", count: 4, description: "4 foto vertikal" },
+]
 
 export default function Home() {
+  const [step, setStep] = useState<Step>("welcome")
+  const [layout, setLayout] = useState(layouts[0])
   const [photos, setPhotos] = useState<string[]>([])
-  const [currentStep, setCurrentStep] = useState<"capture" | "customize" | "download">("capture")
-  const [selectedTemplate, setSelectedTemplate] = useState(templates[0])
-  const [finalImage, setFinalImage] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [template, setTemplate] = useState(templates[0])
   const [retakeIndex, setRetakeIndex] = useState<number | null>(null)
+  const [finalImage, setFinalImage] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const progress = steps.indexOf(step)
 
-  const handlePhotoCapture = (photoDataUrl: string) => {
-    let newPhotos = [...photos]
-
-    // Jika sedang mengulang foto tertentu
-    if (retakeIndex !== null) {
-      newPhotos[retakeIndex] = photoDataUrl
-      setRetakeIndex(null)
-    } else {
-      // Jika mengambil foto baru
-      newPhotos = [...photos, photoDataUrl]
-    }
-
-    setPhotos(newPhotos)
-
-    if (newPhotos.length >= 3 && retakeIndex === null) {
-      setCurrentStep("customize")
-    }
-  }
-
-  const handleRetake = (index: number) => {
-    setRetakeIndex(index)
-  }
-
-  const handleReset = () => {
+  function reset() {
     setPhotos([])
-    setFinalImage(null)
-    setCurrentStep("capture")
     setRetakeIndex(null)
+    setFinalImage(null)
+    setError(null)
+    setStep("welcome")
   }
 
-  const handleTemplateSelect = (template: (typeof templates)[0]) => {
-    setSelectedTemplate(template)
+  function capture(photo: string) {
+    if (retakeIndex !== null) {
+      setPhotos((prev) => prev.map((item, index) => index === retakeIndex ? photo : item))
+      setRetakeIndex(null)
+      return
+    }
+    setPhotos((prev) => {
+      const next = [...prev, photo]
+      if (next.length >= layout.count) setStep("customize")
+      return next
+    })
   }
 
-  const handleCreateFinalImage = () => {
-    const photoStripElement = document.getElementById("photo-strip")
-    if (!photoStripElement) return
-
-    setIsLoading(true)
-
-    // Gunakan html2canvas untuk mengkonversi elemen DOM ke canvas
-    import("html2canvas")
-      .then((html2canvas) => {
-        html2canvas
-          .default(photoStripElement, {
-            useCORS: true,
-            allowTaint: true,
-            scrollX: 0,
-            scrollY: 0,
-            backgroundColor: selectedTemplate.backgroundColor.toString(),
-            scale: 2, // Tingkatkan kualitas gambar
-            onclone: (clonedDoc) => {
-              // Pastikan gambar dalam clone memiliki waktu untuk dimuat
-              const images = clonedDoc.getElementsByTagName("img")
-              for (let i = 0; i < images.length; i++) {
-                images[i].crossOrigin = "Anonymous"
-              }
-            },
-          })
-          .then((canvas) => {
-            try {
-              // Gunakan kualitas maksimum untuk PNG
-              const imgData = canvas.toDataURL("image/png", 1.0)
-              setFinalImage(imgData)
-              setCurrentStep("download")
-            } catch (err) {
-              console.error("Error converting canvas to image:", err)
-              alert("Terjadi kesalahan saat membuat gambar. Silakan coba lagi.")
-            } finally {
-              setIsLoading(false)
-            }
-          })
-          .catch((err) => {
-            console.error("Error creating image:", err)
-            alert("Terjadi kesalahan saat membuat foto strip. Silakan coba lagi.")
-            setIsLoading(false)
-          })
-      })
-      .catch((err) => {
-        console.error("Error loading html2canvas:", err)
-        alert("Terjadi kesalahan saat memuat library. Silakan coba lagi.")
-        setIsLoading(false)
-      })
-  }
-
-  const handleDownload = () => {
-    if (!finalImage) return
-
+  async function generate() {
+    const element = document.getElementById("photo-strip")
+    if (!element) return
+    setBusy(true)
+    setError(null)
     try {
-      // Buat elemen anchor untuk download
-      const link = document.createElement("a")
-      link.href = finalImage
-      link.download = `photo-strip-${new Date().getTime()}.png`
-
-      // Tambahkan ke DOM, klik, dan hapus
-      document.body.appendChild(link)
-      link.click()
-
-      // Beri waktu sebelum menghapus elemen
-      setTimeout(() => {
-        document.body.removeChild(link)
-      }, 100)
-    } catch (err) {
-      console.error("Error downloading image:", err)
-      alert("Terjadi kesalahan saat mengunduh gambar. Silakan coba lagi.")
+      const html2canvas = (await import("html2canvas")).default
+      const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 })
+      setFinalImage(canvas.toDataURL("image/png"))
+      setStep("download")
+    } catch {
+      setError("Gagal membuat foto. Silakan coba kembali.")
+    } finally {
+      setBusy(false)
     }
   }
 
-  // Menentukan foto mana yang sedang diambil
-  const getCurrentPhotoIndex = () => {
-    if (retakeIndex !== null) return retakeIndex
-    return photos.length
+  function download() {
+    if (!finalImage) return
+    const link = document.createElement("a")
+    link.href = finalImage
+    link.download = "arctabooth-" + Date.now() + ".png"
+    link.click()
   }
 
   return (
-    <main className="min-h-screen p-4 md:p-6">
-      <div className="w-full max-w-5xl mx-auto">
-        <h1 className="text-2xl md:text-3xl font-bold text-center mb-4">arctabooth</h1>
+    <main className="min-h-screen px-4 py-6 md:py-10">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-8 flex items-center justify-between gap-3">
+          <button onClick={reset} className="text-xl font-bold tracking-tight" aria-label="Kembali ke beranda">ArctaBooth<span className="text-primary">.</span></button>
+          <span className="text-xs text-muted-foreground">Your moments, your booth.</span>
+        </header>
 
-        <BrowserCheck>
-          {(currentStep === "capture" || retakeIndex !== null) && (
-            <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-4 md:gap-6">
-              <div className="space-y-4">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  {retakeIndex !== null ? (
-                    <p className="text-base">Mengulang foto {retakeIndex + 1}</p>
-                  ) : (
-                    <>
-                      <p className="text-base">Ambil 3 foto untuk membuat strip foto Anda</p>
-                      <p className="text-sm text-muted-foreground">Foto {photos.length + 1} dari 3</p>
-                    </>
-                  )}
-                </div>
-
-                <CameraView onCapture={handlePhotoCapture} />
-
-                <div className="flex justify-center">
-                  {photos.length > 0 && !retakeIndex && (
-                    <Button variant="outline" onClick={handleReset}>
-                      Mulai Ulang
-                    </Button>
-                  )}
-                  {retakeIndex !== null && (
-                    <Button variant="outline" onClick={() => setRetakeIndex(null)}>
-                      Batal Mengulang
-                    </Button>
-                  )}
-                </div>
+        {step !== "welcome" && (
+          <nav aria-label="Progres sesi foto" className="mb-8 flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm">
+            {(["layout", "capture", "customize", "download"] as Step[]).map((item, index) => (
+              <div key={item} className={"rounded-full border px-3 py-2 " + (step === item ? "border-primary bg-primary text-primary-foreground" : progress > steps.indexOf(item) ? "border-primary/30 text-foreground" : "text-muted-foreground")}>
+                {index + 1}. {({ layout: "Layout", capture: "Foto", customize: "Kustomisasi", download: "Hasil" } as Record<string, string>)[item]}
               </div>
+            ))}
+          </nav>
+        )}
 
-              {/* Preview foto dalam format vertikal */}
-              <div className="hidden md:block">
-                <div className="bg-muted p-3 rounded-lg mb-3">
-                  <h3 className="text-sm font-medium text-center">Preview Strip Foto</h3>
-                </div>
-                <div className="w-full max-w-[200px] mx-auto bg-white rounded-lg p-3 shadow-md">
-                  <div className="space-y-3">
-                    {[0, 1, 2].map((index) => (
-                      <div
-                        key={index}
-                        className={`aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center relative
-                          ${retakeIndex === index ? "ring-2 ring-primary" : ""}`}
-                      >
-                        {photos[index] ? (
-                          <>
-                            <img
-                              key={photos[index]}
-                              src={photos[index] || "/placeholder.svg"}
-                              alt={`Foto ${index + 1}`}
-                              className="w-full h-full object-cover"
-                              crossOrigin="anonymous"
-                            />
-                            {/* Tombol Ulang */}
-                            {!retakeIndex && currentStep === "capture" && (
-                              <button
-                                onClick={() => handleRetake(index)}
-                                className="absolute bottom-2 right-2 bg-black/70 text-white p-1 rounded-full hover:bg-black/90 transition-colors"
-                                aria-label="Ulang foto"
-                              >
-                                <RefreshCw className="h-4 w-4" />
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center h-full">
-                            <span className="text-muted-foreground text-sm">Foto {index + 1}</span>
-                            <span className="text-xs text-muted-foreground mt-1">
-                              {getCurrentPhotoIndex() === index ? (
-                                <span className="text-primary font-medium">Mengambil...</span>
-                              ) : index < photos.length ? (
-                                "Menunggu..."
-                              ) : (
-                                "Belum diambil"
-                              )}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+        {step === "welcome" && (
+          <section className="mx-auto flex min-h-[65vh] max-w-2xl flex-col items-center justify-center gap-6 text-center">
+            <div className="rounded-full bg-primary/10 p-5"><Camera className="h-10 w-10 text-primary" /></div>
+            <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Online photobooth</p>
+            <h1 className="text-4xl font-bold tracking-tight md:text-6xl">Capture your favorite moments.</h1>
+            <p className="max-w-lg text-muted-foreground">Ambil foto langsung dari browser, pilih bingkai favorit, lalu simpan kenanganmu. Tanpa akun, tanpa instal aplikasi.</p>
+            <Button size="lg" onClick={() => setStep("layout")}>Mulai Photobooth <ArrowRight className="ml-2 h-4 w-4" /></Button>
+            <p className="text-xs text-muted-foreground">Kamera baru akan diaktifkan saat sesi foto dimulai.</p>
+          </section>
+        )}
 
-              {/* Tampilan mobile untuk preview foto */}
-              <div className="block md:hidden">
-                <div className="grid grid-cols-3 gap-2">
-                  {[0, 1, 2].map((index) => (
-                    <div
-                      key={index}
-                      className={`aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center relative
-                        ${retakeIndex === index ? "ring-2 ring-primary" : ""}`}
-                    >
-                      {photos[index] ? (
-                        <>
-                          <img
-                            key={photos[index]}
-                            src={photos[index] || "/placeholder.svg"}
-                            alt={`Foto ${index + 1}`}
-                            className="w-full h-full object-cover"
-                            crossOrigin="anonymous"
-                          />
-                          {/* Tombol Ulang untuk Mobile */}
-                          {!retakeIndex && currentStep === "capture" && (
-                            <button
-                              onClick={() => handleRetake(index)}
-                              className="absolute bottom-1 right-1 bg-black/70 text-white p-1 rounded-full hover:bg-black/90 transition-colors"
-                              aria-label="Ulang foto"
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">
-                          {getCurrentPhotoIndex() === index ? (
-                            <span className="text-primary">Ambil</span>
-                          ) : (
-                            `Foto ${index + 1}`
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+        {step === "layout" && (
+          <section className="mx-auto max-w-2xl space-y-6">
+            <div className="text-center"><h1 className="text-3xl font-bold">Pilih layout foto</h1><p className="mt-2 text-muted-foreground">Tentukan jumlah foto sebelum memulai sesi.</p></div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {layouts.map((option) => (
+                <button key={option.id} onClick={() => setLayout(option)} aria-pressed={layout.id === option.id} className={"rounded-xl border-2 p-5 text-left transition-colors " + (layout.id === option.id ? "border-primary bg-primary/5" : "hover:bg-muted")}>
+                  <div className="mb-4 flex items-start justify-between"><div className="flex w-16 flex-col gap-1 rounded bg-white p-2 shadow-sm">{Array.from({ length: option.count }).map((_, i) => <div key={i} className="aspect-square rounded-sm bg-slate-200" />)}</div>{layout.id === option.id && <Check className="text-primary" />}</div>
+                  <h2 className="font-semibold">{option.title}</h2><p className="text-sm text-muted-foreground">{option.description}</p>
+                </button>
+              ))}
             </div>
-          )}
+            <div className="flex justify-between gap-3"><Button variant="outline" onClick={() => setStep("welcome")}><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Button><Button onClick={() => { setPhotos([]); setRetakeIndex(null); setStep("capture") }}>Lanjut ke Kamera <ArrowRight className="ml-2 h-4 w-4" /></Button></div>
+          </section>
+        )}
 
-          {currentStep === "customize" && retakeIndex === null && (
-            <div className="space-y-6">
-              <div className="bg-muted p-4 rounded-lg text-center">
-                <p className="text-lg">Pilih template untuk strip foto Anda</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:order-2">
-                  <TemplateSelector
-                    templates={templates}
-                    selectedTemplate={selectedTemplate}
-                    onSelect={handleTemplateSelect}
-                  />
-
-                  <div className="flex justify-center gap-4 mt-6">
-                    <Button variant="outline" onClick={handleReset}>
-                      Mulai Ulang
-                    </Button>
-                    <Button onClick={handleCreateFinalImage} disabled={isLoading}>
-                      {isLoading ? <LoadingSpinner /> : "Buat Strip Foto"}
-                    </Button>
-                  </div>
+        {step === "capture" && (
+          <BrowserCheck>
+            <section className="space-y-5">
+              <div className="text-center"><h1 className="text-3xl font-bold">Sesi foto</h1><p className="mt-2 text-muted-foreground">{retakeIndex !== null ? "Ulang foto " + (retakeIndex + 1) : photos.length === layout.count ? "Semua foto sudah siap!" : "Foto " + (photos.length + 1) + " dari " + layout.count + " · Countdown otomatis"}</p></div>
+              <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(220px,1fr)]">
+                <div className="space-y-4">
+                  {photos.length < layout.count || retakeIndex !== null ? <CameraView key={retakeIndex === null ? "session" : "retake-" + retakeIndex} onCapture={capture} autoCapture={retakeIndex === null} remainingPhotos={retakeIndex !== null ? 1 : layout.count - photos.length} /> : <div className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-xl border bg-muted/30"><Check className="h-12 w-12 text-primary" /><p>Semua foto berhasil diambil.</p><Button onClick={() => setStep("customize")}>Lanjut Kustomisasi <ArrowRight className="ml-2 h-4 w-4" /></Button></div>}
+                  <div className="flex flex-wrap justify-center gap-2"><Button variant="outline" onClick={() => { setPhotos([]); setRetakeIndex(null); setStep("layout") }}><ArrowLeft className="mr-2 h-4 w-4" /> Ganti Layout</Button>{retakeIndex !== null && <Button variant="outline" onClick={() => setRetakeIndex(null)}>Batal Ulang</Button>}{photos.length > 0 && <Button variant="outline" onClick={() => { setPhotos([]); setRetakeIndex(null) }}><RotateCcw className="mr-2 h-4 w-4" /> Mulai Ulang Foto</Button>}</div>
                 </div>
-
-                <div className="md:order-1">
-                  <PhotoStrip photos={photos} template={selectedTemplate} />
-                </div>
+                <aside className="space-y-3"><h2 className="font-semibold">Hasil sementara</h2><div className="grid grid-cols-2 gap-3">{Array.from({ length: layout.count }).map((_, index) => <div key={index} className="group relative aspect-square overflow-hidden rounded-lg border bg-muted">{photos[index] ? <><img src={photos[index]} alt={"Foto " + (index + 1)} className="h-full w-full object-cover" /><button onClick={() => setRetakeIndex(index)} className="absolute bottom-2 right-2 rounded-full bg-black/75 px-3 py-1 text-xs text-white">Ulang</button></> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Foto {index + 1}</div>}</div>)}</div>{photos.length === layout.count && <Button className="w-full" onClick={() => setStep("customize")}>Lanjut Kustomisasi <ArrowRight className="ml-2 h-4 w-4" /></Button>}</aside>
               </div>
-            </div>
-          )}
+            </section>
+          </BrowserCheck>
+        )}
 
-          {currentStep === "download" && finalImage && retakeIndex === null && (
-            <div className="space-y-6">
-              <div className="bg-muted p-4 rounded-lg text-center">
-                <p className="text-lg">Strip foto Anda siap!</p>
-              </div>
+        {step === "customize" && (
+          <section className="space-y-6">
+            <div className="text-center"><h1 className="text-3xl font-bold">Buat strip-mu sendiri</h1><p className="mt-2 text-muted-foreground">Pilih frame favorit dan lihat hasilnya secara langsung.</p></div>
+            <div className="grid items-start gap-8 md:grid-cols-2"><div className="rounded-xl border bg-muted/30 p-5"><PhotoStrip photos={photos} template={template} /></div><div className="space-y-5"><TemplateSelector templates={templates} selectedTemplate={template} onSelect={setTemplate} /><div className="flex flex-wrap gap-3"><Button variant="outline" onClick={() => setStep("capture")}><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Foto</Button><Button onClick={generate} disabled={busy}>{busy ? "Memproses..." : "Lihat Hasil"} <ArrowRight className="ml-2 h-4 w-4" /></Button></div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}</div></div>
+          </section>
+        )}
 
-              <div className="flex justify-center">
-                <img
-                  src={finalImage || "/placeholder.svg"}
-                  alt="Strip foto final"
-                  className="max-w-full max-h-[70vh] object-contain border border-gray-200 rounded-lg shadow-md"
-                />
-              </div>
-
-              <div className="flex justify-center gap-4">
-                <Button variant="outline" onClick={handleReset}>
-                  Buat Strip Baru
-                </Button>
-                <Button onClick={handleDownload}>Unduh Strip Foto</Button>
-              </div>
-            </div>
-          )}
-        </BrowserCheck>
+        {step === "download" && finalImage && (
+          <section className="mx-auto max-w-2xl space-y-6 text-center"><div><h1 className="text-3xl font-bold">Your memories are ready!</h1><p className="mt-2 text-muted-foreground">Simpan hasil photobooth-mu dalam format PNG.</p></div><img src={finalImage} alt="Hasil akhir photobooth" className="mx-auto max-h-[65vh] max-w-full rounded-lg border object-contain shadow-md" /><div className="flex flex-wrap justify-center gap-3"><Button variant="outline" onClick={() => setStep("customize")}><ArrowLeft className="mr-2 h-4 w-4" /> Edit Lagi</Button><Button onClick={download}><Download className="mr-2 h-4 w-4" /> Download PNG</Button><Button variant="outline" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" /> Sesi Baru</Button></div></section>
+        )}
       </div>
     </main>
   )
 }
-
