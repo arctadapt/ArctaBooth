@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { analyzeFrame, renderCustomFrame, type CustomFrame } from "@/lib/custom-frame"
 import CameraView from "@/components/camera-view"
 import PhotoStrip from "@/components/photo-strip"
 import TemplateSelector from "@/components/template-selector"
@@ -24,6 +25,8 @@ export default function Home() {
   const [retakeIndex, setRetakeIndex] = useState<number | null>(null)
   const [finalImage, setFinalImage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [customFrame, setCustomFrame] = useState<CustomFrame | null>(null)
+  const [frameMode, setFrameMode] = useState<"builtin" | "upload">("builtin")
   const [error, setError] = useState<string | null>(null)
   const progress = steps.indexOf(step)
 
@@ -31,6 +34,8 @@ export default function Home() {
     setPhotos([])
     setRetakeIndex(null)
     setFinalImage(null)
+    setCustomFrame(null)
+    setFrameMode("builtin")
     setError(null)
     setStep("welcome")
   }
@@ -48,18 +53,36 @@ export default function Home() {
     })
   }
 
+  async function uploadFrame(file?: File) {
+    if (!file) return
+    setBusy(true); setError(null)
+    try {
+      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) throw new Error("Upload file PNG, JPG, atau WebP.")
+      if (file.size > 12 * 1024 * 1024) throw new Error("Ukuran file maksimal 12 MB.")
+      const source = await new Promise<string>((resolve,reject)=>{ const reader=new FileReader(); reader.onload=()=>resolve(String(reader.result)); reader.onerror=()=>reject(new Error("File gagal dibaca.")); reader.readAsDataURL(file) })
+      const result=await analyzeFrame(source)
+      setCustomFrame(result); setFrameMode("upload")
+      if (result.slots.length !== photos.length) setError(`Frame terdeteksi ${result.slots.length} area foto, tetapi sesi ini memiliki ${photos.length} foto. Gunakan frame dengan jumlah area yang sama.`)
+    } catch (e) { setCustomFrame(null); setError(e instanceof Error ? e.message : "Gagal membaca frame.") } finally { setBusy(false) }
+  }
+
   async function generate() {
     const element = document.getElementById("photo-strip")
-    if (!element) return
+    if (!element && frameMode === "builtin") return
     setBusy(true)
     setError(null)
     try {
-      const html2canvas = (await import("html2canvas")).default
-      const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 })
-      setFinalImage(canvas.toDataURL("image/png"))
+      if (frameMode === "upload") {
+        if (!customFrame) throw new Error("Upload custom frame terlebih dahulu.")
+        setFinalImage(await renderCustomFrame(customFrame, photos))
+      } else {
+        const html2canvas = (await import("html2canvas")).default
+        const canvas = await html2canvas(element!, { useCORS: true, backgroundColor: null, scale: 3 })
+        setFinalImage(canvas.toDataURL("image/png"))
+      }
       setStep("download")
-    } catch {
-      setError("Gagal membuat foto. Silakan coba kembali.")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal membuat foto. Silakan coba kembali.")
     } finally {
       setBusy(false)
     }
@@ -169,7 +192,7 @@ export default function Home() {
         {step === "customize" && (
           <section className="booth-workspace space-y-6">
             <div className="text-center"><h1 className="text-3xl font-bold">Buat strip-mu sendiri</h1><p className="mt-2 text-muted-foreground">Pilih frame favorit dan lihat hasilnya secara langsung.</p></div>
-            <div className="grid items-start gap-8 md:grid-cols-2"><div className="rounded-xl border bg-muted/30 p-5"><PhotoStrip photos={photos} template={template} /></div><div className="space-y-5"><TemplateSelector templates={templates} selectedTemplate={template} onSelect={setTemplate} /><div className="flex flex-wrap gap-3"><Button variant="outline" onClick={() => setStep("capture")}><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Foto</Button><Button onClick={generate} disabled={busy}>{busy ? "Memproses..." : "Lihat Hasil"} <ArrowRight className="ml-2 h-4 w-4" /></Button></div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}</div></div>
+            <div className="grid items-start gap-8 md:grid-cols-2"><div className="rounded-xl border bg-muted/30 p-5">{frameMode === "upload" && customFrame ? <div className="mx-auto max-w-[300px]"><img src={customFrame.source} alt="Custom frame dengan area foto hijau" className="w-full" /><p className="mt-2 text-center text-xs text-muted-foreground">{customFrame.slots.length} area foto terdeteksi. Klik Lihat Hasil untuk melihat komposisi akhir.</p></div> : <PhotoStrip photos={photos} template={template} />}</div><div className="space-y-5"><div className="flex gap-2"><Button variant={frameMode === "builtin" ? "default" : "outline"} onClick={() => {setFrameMode("builtin");setError(null)}}>Frame Bawaan</Button><Button variant={frameMode === "upload" ? "default" : "outline"} onClick={() => {setFrameMode("upload");setError(null)}}>Upload Custom Frame</Button></div>{frameMode === "upload" ? <div className="space-y-3 rounded-xl border border-dashed p-5"><h3 className="font-semibold">Upload custom frame kamu</h3><p className="text-sm text-muted-foreground">PNG, JPG, atau WebP dengan area hijau terang. Area hijau otomatis diganti foto, dekorasi tetap terlihat di atasnya.</p><input aria-label="Pilih custom frame" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => uploadFrame(e.target.files?.[0])} className="block w-full text-sm" />{customFrame && <p className="text-sm font-medium">{customFrame.slots.length} area terdeteksi · {customFrame.width} × {customFrame.height}px</p>}</div> : <TemplateSelector templates={templates} selectedTemplate={template} onSelect={setTemplate} />}<div className="flex flex-wrap gap-3"><Button variant="outline" onClick={() => setStep("capture")}><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Foto</Button><Button onClick={generate} disabled={busy || (frameMode === "upload" && (!customFrame || customFrame.slots.length !== photos.length))}>{busy ? "Memproses..." : "Lihat Hasil"} <ArrowRight className="ml-2 h-4 w-4" /></Button></div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}</div></div>
           </section>
         )}
 
