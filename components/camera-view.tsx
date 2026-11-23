@@ -8,12 +8,19 @@ interface CameraViewProps {
   onCapture: (photoDataUrl: string) => void
   autoCapture?: boolean
   remainingPhotos?: number
+  onVideoCapture?: (video: Blob) => void
 }
 
-export default function CameraView({ onCapture, autoCapture = false, remainingPhotos = 1 }: CameraViewProps) {
+export default function CameraView({ onCapture, autoCapture = false, remainingPhotos = 1, onVideoCapture }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const recordedChunksRef = useRef<Blob[]>([])
+  const onVideoCaptureRef = useRef(onVideoCapture)
+  onVideoCaptureRef.current = onVideoCapture
+  const [recording, setRecording] = useState(false)
+  const [recordingError, setRecordingError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [isCameraReady, setIsCameraReady] = useState(false)
@@ -37,6 +44,7 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
       try {
         setDebugInfo("Memulai akses kamera...")
 
+        if (recorderRef.current?.state === "recording") recorderRef.current.stop()
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => track.stop())
           streamRef.current = null
@@ -137,6 +145,7 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
 
     return () => {
       clearTimeout(timer)
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop()
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop())
         streamRef.current = null
@@ -228,6 +237,33 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
     return () => window.clearTimeout(timer)
   }, [countdown])
 
+  const toggleRecording = useCallback(() => {
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.stop()
+      setRecording(false)
+      return
+    }
+    try {
+      const stream = streamRef.current
+      if (!stream || !isCameraReady || typeof MediaRecorder === "undefined") throw new Error("Kamera belum siap atau browser tidak mendukung rekaman.")
+      const mime = ["video/webm;codecs=vp8", "video/webm", "video/mp4"].find(type => MediaRecorder.isTypeSupported(type))
+      if (!mime) throw new Error("Format rekaman tidak didukung browser ini.")
+      recordedChunksRef.current = []
+      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 1200000 })
+      recorder.ondataavailable = event => { if (event.data.size) recordedChunksRef.current.push(event.data) }
+      recorder.onstop = () => {
+        setRecording(false)
+        const blob = new Blob(recordedChunksRef.current, { type: mime.split(";")[0] })
+        if (blob.size) onVideoCaptureRef.current?.(blob)
+      }
+      recorder.onerror = () => { setRecording(false); setRecordingError("Rekaman gagal. Silakan coba lagi.") }
+      recorderRef.current = recorder
+      recorder.start(1000)
+      setRecordingError(null)
+      setRecording(true)
+    } catch (cause) { setRecordingError(cause instanceof Error ? cause.message : "Tidak dapat merekam.") }
+  }, [isCameraReady])
+
   return (
     <div className="relative max-w-md mx-auto">
       <div className="relative rounded-lg overflow-hidden bg-black aspect-[4/3]">
@@ -277,6 +313,8 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
+      {recordingError && <p role="alert" className="mt-2 text-sm text-red-600">{recordingError}</p>}
+      {recording && <p className="mt-2 text-center text-sm font-semibold text-red-600">● Merekam video kamera. Tekan Stop Rekam sebelum melanjutkan.</p>}
 
       <div className="mt-4">
         {/* Control buttons */}
@@ -301,6 +339,7 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
             {isMirrored ? "Non-Mirror" : "Mirror"}
           </Button>
 
+          {onVideoCapture && <Button variant={recording ? "destructive" : "outline"} onClick={toggleRecording} disabled={!isCameraReady && !recording}>{recording ? "Stop Rekam" : "Rekam Video"}</Button>}
           <Button onClick={startCountdown} disabled={!isCameraReady || countdown !== null}>
             <Camera className="mr-2 h-4 w-4" />
             {autoCapture ? (sessionStarted ? "Sesi Berjalan" : "Mulai Sesi Foto") : "Ambil Foto"}
