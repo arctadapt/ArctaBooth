@@ -10,8 +10,7 @@ export async function POST(request: NextRequest) {
     }
     if (typeof shareUrl !== "string") return NextResponse.json({ error: "Tautan tidak valid." }, { status: 400 })
     const link = new URL(shareUrl)
-    const origin = new URL(request.url).origin
-    if (link.origin !== origin || !/^\/sesi\/[a-f0-9-]{36}$/.test(link.pathname) || !link.searchParams.has("manifest")) {
+    if (link.origin !== "https://drive.google.com" || !/^\/drive\/folders\/[a-zA-Z0-9_-]+$/.test(link.pathname)) {
       return NextResponse.json({ error: "Tautan sesi tidak valid." }, { status: 400 })
     }
     if (process.env.RESEND_FROM_EMAIL === "onboarding@resend.dev" && email.toLowerCase() !== "l7ksam17@gmail.com") {
