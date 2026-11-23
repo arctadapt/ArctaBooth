@@ -23,10 +23,10 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: { Authorization: "Bearer " + process.env.RESEND_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL,
+        from: "ArctaBooth <" + process.env.RESEND_FROM_EMAIL + ">",
         to: [email],
-        subject: "Hasil Sesi ArctaBooth Kamu",
-        text: "Terima kasih sudah menggunakan ArctaBooth! Buka tautan berikut untuk melihat dan mengunduh semua foto, GIF, dan video sesi kamu:\n\n" + link.toString(),
+        subject: "Kenanganmu dari ArctaBooth sudah siap! ✨",
+        text: "Hai! ✨\n\nKenangan dari sesi ArctaBooth kamu sudah siap. Semua foto, GIF, dan video bisa kamu lihat dan unduh melalui tautan Google Drive berikut:\n\n" + link.toString() + "\n\nTerima kasih sudah mengabadikan momen bersama ArctaBooth!\n— Tim ArctaBooth",
       }),
     })
     if (!response.ok) return NextResponse.json({ error: "Email belum berhasil dikirim. Silakan coba lagi." }, { status: 502 })
