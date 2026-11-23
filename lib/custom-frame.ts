@@ -66,7 +66,7 @@ function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: F
 }
 
 export async function renderCustomFrame(frame: CustomFrame, photos: string[]): Promise<string> {
-  if (frame.slots.length !== photos.length) throw new Error("Jumlah area foto pada frame harus sama dengan jumlah foto.")
+  if (frame.slots.length !== photos.length) throw new Error("Jumlah slot dan foto tidak sesuai.")
   const image = await loadImage(frame.source)
   const canvas = document.createElement("canvas")
   canvas.width = frame.width; canvas.height = frame.height
@@ -74,11 +74,12 @@ export async function renderCustomFrame(frame: CustomFrame, photos: string[]): P
   if (!ctx) throw new Error("Canvas tidak didukung.")
   ctx.drawImage(image,0,0)
   const original = ctx.getImageData(0,0,canvas.width,canvas.height)
-  const photoImages = await Promise.all(photos.map(loadImage))
+  const photoImages = await Promise.all(photos.map(photo => photo ? loadImage(photo) : Promise.resolve(null)))
   for (let i=0;i<frame.slots.length;i++) {
     const slot = frame.slots[i]
+    if (!photoImages[i]) continue
     ctx.save(); ctx.beginPath(); ctx.rect(slot.x,slot.y,slot.width,slot.height); ctx.clip()
-    drawCover(ctx,photoImages[i],slot); ctx.restore()
+    drawCover(ctx,photoImages[i]!,slot); ctx.restore()
   }
   const output = ctx.getImageData(0,0,canvas.width,canvas.height)
   // Keep every non-green original pixel above the photos, including stickers intruding into the slots.
