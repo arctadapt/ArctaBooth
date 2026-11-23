@@ -4,113 +4,88 @@ import { useEffect, useState } from "react"
 import { GIFEncoder, quantize, applyPalette } from "gifenc"
 import { Button } from "@/components/ui/button"
 
-type Props = { photos: string[]; cameraVideo?: Blob | null; onMediaChange: (media: { gif: Blob | null; video: Blob | null }) => void }
-const SIZE = 480
+export type GeneratedMedia = { compilation: Blob | null; takes: Blob[] }
+const SIZE = 320
 
 function load(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error("Foto tidak dapat dimuat."))
-    image.src = src
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error("Gambar gagal dimuat"))
+    img.src = src
   })
 }
-function draw(ctx: CanvasRenderingContext2D, image: HTMLImageElement) {
-  const scale = Math.max(SIZE / image.naturalWidth, SIZE / image.naturalHeight)
-  const w = image.naturalWidth * scale, h = image.naturalHeight * scale
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, SIZE, SIZE)
-  ctx.drawImage(image, (SIZE - w) / 2, (SIZE - h) / 2, w, h)
+export async function encodeGif(frames: string[], delay = 180): Promise<Blob> {
+  const images = await Promise.all(frames.slice(0, 24).map(load))
+  const canvas = document.createElement("canvas")
+  canvas.width = SIZE; canvas.height = SIZE
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
+  if (!ctx) throw new Error("Canvas tidak tersedia")
+  const encoder = GIFEncoder()
+  for (const img of images) {
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, SIZE, SIZE)
+    const scale = Math.max(SIZE/img.naturalWidth, SIZE/img.naturalHeight)
+    const w = img.naturalWidth*scale, h = img.naturalHeight*scale
+    ctx.drawImage(img, (SIZE-w)/2, (SIZE-h)/2, w, h)
+    const pixels = ctx.getImageData(0,0,SIZE,SIZE).data
+    const palette = quantize(pixels, 96)
+    encoder.writeFrame(applyPalette(pixels, palette), SIZE, SIZE, { palette, delay })
+  }
+  encoder.finish()
+  return new Blob([encoder.bytes()], { type: "image/gif" })
 }
-function save(blob: Blob, filename: string) {
+export function downloadBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob)
-  const a = document.createElement("a"); a.href = url; a.download = filename; a.click()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 2000)
 }
 
-export default function SessionMedia({ photos, cameraVideo, onMediaChange }: Props) {
-  const [gif, setGif] = useState<Blob | null>(null)
-  const [video, setVideo] = useState<Blob | null>(cameraVideo ?? null)
-  const [cameraVideoUrl, setCameraVideoUrl] = useState<string | null>(null)
+export default function SessionMedia({ photos, takeFrames, cameraVideo, onMediaChange }: {
+  photos: string[]
+  takeFrames: string[][]
+  cameraVideo: Blob | null
+  onMediaChange: (media: GeneratedMedia) => void
+}) {
+  const [media, setMedia] = useState<GeneratedMedia>({ compilation: null, takes: [] })
+  const [processing, setProcessing] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [gifUrls, setGifUrls] = useState<string[]>([])
   useEffect(() => {
     if (!cameraVideo) return
-    setVideo(cameraVideo)
     const url = URL.createObjectURL(cameraVideo)
-    setCameraVideoUrl(url)
+    setVideoUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [cameraVideo])
-  const [working, setWorking] = useState<"gif" | "video" | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const canMake = photos.length > 0
-
-  async function makeGif() {
-    if (!canMake || working) return
-    setWorking("gif"); setError(null)
-    try {
-      const images = await Promise.all(photos.slice(0, 20).map(load))
-      const canvas = document.createElement("canvas"); canvas.width = SIZE; canvas.height = SIZE
-      const ctx = canvas.getContext("2d", { willReadFrequently: true })
-      if (!ctx) throw new Error("Canvas tidak tersedia.")
-      const encoder = GIFEncoder()
-      for (const image of images) {
-        draw(ctx, image)
-        const pixels = ctx.getImageData(0, 0, SIZE, SIZE).data
-        const palette = quantize(pixels, 128)
-        const indexed = applyPalette(pixels, palette)
-        encoder.writeFrame(indexed, SIZE, SIZE, { palette, delay: 650 })
-      }
-      encoder.finish()
-      const blob = new Blob([encoder.bytes()], { type: "image/gif" })
-      setGif(blob); onMediaChange({ gif: blob, video }); save(blob, "arctabooth-animasi.gif")
-    } catch (e) { setError(e instanceof Error ? e.message : "Gagal membuat GIF.") }
-    finally { setWorking(null) }
-  }
-
-  async function makeVideo() {
-    if (!canMake || working) return
-    setWorking("video"); setError(null)
-    try {
-      if (typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) throw new Error("Browser belum mendukung perekaman video canvas.")
-      const images = await Promise.all(photos.slice(0, 20).map(load))
-      const canvas = document.createElement("canvas"); canvas.width = SIZE; canvas.height = SIZE
-      const ctx = canvas.getContext("2d")
-      if (!ctx) throw new Error("Canvas tidak tersedia.")
-      const mime = ["video/webm;codecs=vp8", "video/webm"].find(type => MediaRecorder.isTypeSupported(type))
-      if (!mime) throw new Error("Browser tidak mendukung ekspor WebM. Coba Chrome atau Edge.")
-      draw(ctx, images[0])
-      const stream = canvas.captureStream(15)
-      const chunks: Blob[] = []
-      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 650000 })
-      const finished = new Promise<Blob>((resolve, reject) => {
-        recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data) }
-        recorder.onerror = () => reject(new Error("Gagal merekam video."))
-        recorder.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }))
-      })
-      recorder.start()
+  useEffect(() => {
+    let cancelled = false
+    const urls: string[] = []
+    async function run() {
       try {
-        for (const image of images) {
-          draw(ctx, image)
-          await new Promise<void>(resolve => window.setTimeout(resolve, 650))
+        const takes: Blob[] = []
+        for (const frames of takeFrames) {
+          if (frames.length) takes.push(await encodeGif(frames, 180))
         }
-      } finally {
-        recorder.stop()
-        stream.getTracks().forEach(track => track.stop())
-      }
-      const blob = await finished
-      if (!blob.size) throw new Error("Video kosong. Coba ulangi.")
-      setVideo(blob); onMediaChange({ gif, video: blob }); save(blob, "arctabooth-slideshow.webm")
-    } catch (e) { setError(e instanceof Error ? e.message : "Gagal membuat video.") }
-    finally { setWorking(null) }
-  }
+        const compilation = photos.length ? await encodeGif(photos, 650) : null
+        if (cancelled) return
+        const next = { compilation, takes }
+        setMedia(next); onMediaChange(next)
+        const created = [...takes, ...(compilation ? [compilation] : [])].map(blob => URL.createObjectURL(blob))
+        urls.push(...created)
+        setGifUrls(created)
+      } catch (e) { if (!cancelled) setError(e instanceof Error ? e.message : "Gagal membuat GIF.") }
+      finally { if (!cancelled) setProcessing(false) }
+    }
+    void run()
+    return () => { cancelled = true; urls.forEach(url => URL.revokeObjectURL(url)) }
+  }, [photos, takeFrames, onMediaChange])
 
-  return <div className="space-y-3 rounded-2xl border bg-white p-5">
-    <h2 className="font-semibold">GIF & Video dari Sesi Foto</h2>
-    <p className="text-sm text-slate-500">Buat GIF dari foto atau video slideshow. Jika kamu merekam kamera saat sesi, rekaman asli akan disertakan dalam QR Code.</p>
-    {cameraVideoUrl && <div className="space-y-2"><p className="text-sm font-semibold">Rekaman asli dari kamera</p><video controls playsInline src={cameraVideoUrl} className="mx-auto max-h-64 w-full rounded-xl bg-black" /><Button variant="outline" onClick={() => cameraVideo && save(cameraVideo, cameraVideo.type === "video/mp4" ? "arctabooth-rekaman.mp4" : "arctabooth-rekaman.webm")}>Unduh Rekaman Kamera</Button></div>}
-    <div className="flex flex-wrap justify-center gap-3">
-      <Button variant="outline" disabled={!canMake || !!working} onClick={() => void makeGif()}>{working === "gif" ? "Membuat GIF..." : gif ? "Buat Ulang GIF" : "Buat & Unduh GIF"}</Button>
-      <Button variant="outline" disabled={!canMake || !!working} onClick={() => void makeVideo()}>{working === "video" ? "Membuat video..." : video ? "Buat Ulang Video" : "Buat Video Slideshow"}</Button>
-    </div>
-    <p className="text-xs text-slate-500">Status: GIF {gif ? "siap" : "belum dibuat"} · Video {video ? "siap" : "belum dibuat"}. Buat media sebelum menekan Buat QR Code.</p>
+  return <div className="space-y-4 rounded-2xl border bg-white p-5">
+    <h2 className="font-semibold">Hasil Media Otomatis</h2>
+    {processing && <p className="text-sm text-slate-500">Sedang membuat GIF setiap take dan GIF gabungan...</p>}
     {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+    {videoUrl && <div className="space-y-2"><p className="font-medium">Video penuh sesi foto</p><video controls playsInline src={videoUrl} className="mx-auto max-h-64 w-full rounded-xl bg-black" /><Button variant="outline" onClick={() => cameraVideo && downloadBlob(cameraVideo, cameraVideo.type === "video/mp4" ? "video-sesi.mp4" : "video-sesi.webm")}>Unduh Video Sesi</Button></div>}
+    {media.compilation && gifUrls.length > 0 && <div className="space-y-2"><p className="font-medium">GIF Gabungan Semua Foto</p><img src={gifUrls[gifUrls.length-1]} alt="GIF kompilasi" className="mx-auto h-44 w-44 rounded-xl object-cover" /><Button variant="outline" onClick={() => media.compilation && downloadBlob(media.compilation, "gif-semua-foto.gif")}>Unduh GIF Gabungan</Button></div>}
+    {media.takes.length > 0 && <div><p className="mb-3 font-medium">GIF Setiap Take ({media.takes.length})</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{media.takes.map((blob,i) => <div key={i} className="space-y-2"><img src={gifUrls[i]} alt={"GIF take "+(i+1)} className="w-full rounded-lg" /><Button size="sm" variant="outline" onClick={() => downloadBlob(blob,"gif-take-"+(i+1)+".gif")}>Unduh Take {i+1}</Button></div>)}</div></div>}
   </div>
 }
