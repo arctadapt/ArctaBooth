@@ -7,9 +7,11 @@ import { photoFilters, type PhotoFilter } from "@/lib/templates"
 
 interface CameraViewProps {
   onCapture: (photoDataUrl: string) => void
+  autoCapture?: boolean
+  remainingPhotos?: number
 }
 
-export default function CameraView({ onCapture }: CameraViewProps) {
+export default function CameraView({ onCapture, autoCapture = false, remainingPhotos = 1 }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -21,9 +23,13 @@ export default function CameraView({ onCapture }: CameraViewProps) {
   const [isMirrored, setIsMirrored] = useState(true)
   const [selectedFilter, setSelectedFilter] = useState<PhotoFilter>(photoFilters[0])
   const [showFilters, setShowFilters] = useState(false)
+  const [sessionStarted, setSessionStarted] = useState(false)
+  const captureRef = useRef<() => void>(() => {})
+  const onCaptureRef = useRef(onCapture)
+  onCaptureRef.current = onCapture
 
   // Deteksi apakah perangkat adalah iOS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
+  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent)
 
   // Gunakan useRef untuk menyimpan fungsi startCamera
   const startCameraRef = useRef<() => Promise<void>>()
@@ -141,16 +147,7 @@ export default function CameraView({ onCapture }: CameraViewProps) {
     }
   }, [cameraFacingMode, isIOS])
 
-  // Effect terpisah untuk menangani perubahan cameraFacingMode
-  useEffect(() => {
-    // Jangan jalankan pada mount awal
-    if (cameraFacingMode && startCameraRef.current && streamRef.current) {
-      startCameraRef.current()
-    }
-
-    // Set default mirror mode berdasarkan kamera yang digunakan
-    setIsMirrored(cameraFacingMode === "user")
-  }, [cameraFacingMode])
+  useEffect(() => { setIsMirrored(cameraFacingMode === "user") }, [cameraFacingMode])
 
   const switchCamera = useCallback(() => {
     setCameraFacingMode((prev) => (prev === "user" ? "environment" : "user"))
@@ -215,37 +212,39 @@ export default function CameraView({ onCapture }: CameraViewProps) {
           filteredContext.drawImage(canvas, 0, 0)
 
           const photoDataUrl = filteredCanvas.toDataURL("image/jpeg", 0.9) // Kualitas 90%
-          onCapture(photoDataUrl)
+          onCaptureRef.current(photoDataUrl)
         }
       }
     }
-  }, [isCameraReady, isMirrored, onCapture, selectedFilter.filter])
+  }, [isCameraReady, isMirrored, selectedFilter.filter])
+  captureRef.current = capturePhoto
 
-  // Pisahkan logika countdown dan pengambilan foto
   const startCountdown = useCallback(() => {
+    if (!isCameraReady || countdown !== null) return
+    setSessionStarted(true)
     setCountdown(3)
-  }, [])
+  }, [isCameraReady, countdown])
 
-  // Gunakan useEffect untuk menangani countdown dan pengambilan foto
+  useEffect(() => {
+    if (!autoCapture || !sessionStarted || !isCameraReady || remainingPhotos <= 0 || countdown !== null) return
+    const timer = window.setTimeout(() => setCountdown(3), 500)
+    return () => window.clearTimeout(timer)
+  }, [autoCapture, sessionStarted, isCameraReady, remainingPhotos, countdown])
+
   useEffect(() => {
     if (countdown === null) return
+    if (countdown === 0) {
+      const timer = window.setTimeout(() => {
+        captureRef.current()
+        setCountdown(null)
+      }, 180)
+      return () => window.clearTimeout(timer)
+    }
+    const timer = window.setTimeout(() => setCountdown((value) => value === null ? null : value - 1), 1000)
+    return () => window.clearTimeout(timer)
+  }, [countdown])
 
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(interval)
-          // Jadwalkan capturePhoto setelah countdown selesai
-          setTimeout(() => {
-            capturePhoto()
-            setCountdown(null)
-          }, 100)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(interval)
+  return () => clearInterval(interval)
   }, [countdown, capturePhoto])
 
   return (
@@ -323,7 +322,7 @@ export default function CameraView({ onCapture }: CameraViewProps) {
           <Button
             variant="outline"
             onClick={switchCamera}
-            disabled={!isCameraReady || countdown !== null}
+            disabled={!isCameraReady || countdown !== null || (autoCapture && sessionStarted)}
             className="px-3"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -352,7 +351,7 @@ export default function CameraView({ onCapture }: CameraViewProps) {
 
           <Button onClick={startCountdown} disabled={!isCameraReady || countdown !== null}>
             <Camera className="mr-2 h-4 w-4" />
-            Ambil Foto
+            {autoCapture ? (sessionStarted ? "Sesi Berjalan" : "Mulai Sesi Foto") : "Ambil Foto"}
           </Button>
         </div>
       </div>
