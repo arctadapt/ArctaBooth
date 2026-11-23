@@ -61,7 +61,8 @@
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
     "@vercel/blob": "^0.27.0",
-    "qrcode.react": "^4.2.0"
+    "qrcode.react": "^4.2.0",
+    "gifenc": "^1.0.3"
   },
   "devDependencies": {
     "@types/node": "^22",
