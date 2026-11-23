@@ -65,7 +65,7 @@ function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: F
   ctx.drawImage(img, slot.x+(slot.width-width)/2, slot.y+(slot.height-height)/2, width, height)
 }
 
-export async function renderCustomFrame(frame: CustomFrame, photos: string[]): Promise<string> {
+export async function renderCustomFrame(frame: CustomFrame, photos: string[], filter = "none"): Promise<string> {
   if (frame.slots.length !== photos.length) throw new Error("Jumlah slot dan foto tidak sesuai.")
   const image = await loadImage(frame.source)
   const canvas = document.createElement("canvas")
@@ -79,6 +79,7 @@ export async function renderCustomFrame(frame: CustomFrame, photos: string[]): P
     const slot = frame.slots[i]
     if (!photoImages[i]) continue
     ctx.save(); ctx.beginPath(); ctx.rect(slot.x,slot.y,slot.width,slot.height); ctx.clip()
+    ctx.filter = filter
     drawCover(ctx,photoImages[i]!,slot); ctx.restore()
   }
   const output = ctx.getImageData(0,0,canvas.width,canvas.height)
