@@ -7,7 +7,7 @@ import PhotoStrip from "@/components/photo-strip"
 import TemplateSelector from "@/components/template-selector"
 import BrowserCheck from "@/components/browser-check"
 import { Button } from "@/components/ui/button"
-import { templates } from "@/lib/templates"
+import { templates, photoFilters } from "@/lib/templates"
 import { ArrowRight, Camera, Download, RotateCcw, Sparkles, Image as ImageIcon, ShieldCheck, Heart, Aperture } from "lucide-react"
 
 type Step = "welcome" | "template" | "capture" | "finishing" | "download"
@@ -29,6 +29,7 @@ export default function Home() {
   const [draggingPhoto, setDraggingPhoto] = useState<number | null>(null)
   const [hoveredSlot, setHoveredSlot] = useState<number | null>(null)
   const [finalImage, setFinalImage] = useState<string | null>(null)
+  const [selectedFilter, setSelectedFilter] = useState(photoFilters[0])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const phaseRef = useRef<Phase | null>(null)
@@ -70,7 +71,7 @@ export default function Home() {
     phaseRef.current = null
     setPhase(null); setDeadline(null); setStep("welcome")
     setGallery([]); setAssignments({}); setPending(null); setSelectedSlot(null)
-    setFinalImage(null); setCustomFrame(null); setMode("builtin"); setError(null)
+    setFinalImage(null); setCustomFrame(null); setMode("builtin"); setSelectedFilter(photoFilters[0]); setError(null)
   }
 
   function placePhoto(slot: number, photoIndex: number) {
@@ -179,7 +180,7 @@ export default function Home() {
       let image: string
       if (mode === "upload") {
         if (!customFrame) throw new Error("Upload template terlebih dahulu.")
-        image = await renderCustomFrame(customFrame, assigned)
+        image = await renderCustomFrame(customFrame, assigned, selectedFilter.filter)
       } else {
         const element = document.getElementById("photo-strip")
         if (!element) throw new Error("Preview template belum tersedia.")
@@ -205,7 +206,7 @@ export default function Home() {
     if (mode === "upload" && customFrame) {
       return <div className="space-y-2"><img src={customFrame.source} alt="Template upload" className="mx-auto max-h-[440px] max-w-full object-contain" /><p className="text-center text-xs text-muted-foreground">{slotCount} slot terdeteksi. Dekorasi template dipertahankan pada hasil akhir.</p></div>
     }
-    return <PhotoStrip photos={assigned.map(photo => photo || "/placeholder.svg")} template={template} />
+    return <div style={{ filter: selectedFilter.filter }}><PhotoStrip photos={assigned.map(photo => photo || "/placeholder.svg")} template={template} /></div>
   }
 
   return (
@@ -232,14 +233,14 @@ export default function Home() {
           <div className="text-center"><h1 className="text-3xl font-bold">Finishing · Drag & Drop</h1><p className="mt-2 text-muted-foreground">Tarik foto dari galeri ke slot template. Di HP, ketuk slot lalu ketuk foto yang diinginkan.</p></div>
           <div className="grid items-start gap-6 md:grid-cols-2">
             <div className="space-y-3 rounded-xl border bg-muted/30 p-5"><h2 className="font-semibold">Template · {slotCount} slot</h2>{slotBoard()}<p className="text-xs text-muted-foreground">Foto yang sama bisa digunakan di beberapa slot. Tarik foto lain untuk mengganti.</p></div>
-            <div className="space-y-4"><h2 className="font-semibold">Galeri hasil foto ({gallery.length})</h2>{galleryBoard()}
+            <div className="space-y-4"><h2 className="font-semibold">Filter Foto</h2><div className="flex flex-wrap gap-2">{photoFilters.map(filter => <Button key={filter.id} size="sm" variant={selectedFilter.id === filter.id ? "default" : "outline"} onClick={() => setSelectedFilter(filter)}>{filter.name}</Button>)}</div><h2 className="font-semibold">Galeri hasil foto ({gallery.length})</h2>{galleryBoard()}
               {gallery.length === 0 && <p className="text-sm text-muted-foreground">Belum ada foto di galeri.</p>}
               <p className="text-xs text-muted-foreground">Slot terpilih: {selectedSlot === null ? "belum ada" : selectedSlot + 1}. Klik slot, lalu klik foto sebagai alternatif drag & drop.</p>
               <Button onClick={() => void generate()} disabled={busy || !assigned.some(Boolean)}>{busy ? "Memproses..." : "Selesaikan & Lihat Hasil"}</Button>
               {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
             </div>
           </div>
-          <div className="hidden" aria-hidden="true">{mode === "builtin" && <PhotoStrip photos={assigned.map(photo => photo || "/placeholder.svg")} template={template} />}</div>
+          <div className="absolute -left-[9999px] top-0 pointer-events-none" aria-hidden="true">{mode === "builtin" && <div style={{ filter: selectedFilter.filter }}><PhotoStrip photos={assigned.map(photo => photo || "/placeholder.svg")} template={template} /></div>}</div>
         </section>}
 
         {step === "download" && finalImage && <section className="booth-workspace mx-auto max-w-2xl space-y-6 text-center"><div><h1 className="text-3xl font-bold">Your memories are ready!</h1><p className="mt-2 text-muted-foreground">Unduh hasil fotomu. Penyimpanan Google Drive dan QR masih dalam pengembangan.</p></div><img src={finalImage} alt="Hasil akhir photobooth" className="mx-auto max-h-[65vh] max-w-full rounded-lg border object-contain shadow-md" /><div className="flex flex-wrap justify-center gap-3"><Button onClick={download}><Download className="mr-2 h-4 w-4" /> Download PNG</Button><Button variant="outline" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" /> Sesi Baru</Button></div></section>}
