@@ -14,7 +14,7 @@ async function driveJson(url:string,token:string,method:string,body:unknown) {
 }
 
 export const runtime = "nodejs"
-export const maxDuration = 300
+export const maxDuration = 60
 export async function POST(request:NextRequest) {
   try {
     if(!process.env.GOOGLE_CLIENT_ID||!process.env.GOOGLE_CLIENT_SECRET||!process.env.GOOGLE_REFRESH_TOKEN||!process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID) return NextResponse.json({error:"Google Drive belum dikonfigurasi."},{status:503})
