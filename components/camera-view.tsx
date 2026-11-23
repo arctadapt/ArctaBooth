@@ -289,7 +289,7 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
   }, [isCameraReady, isMirrored])
 
   return (
-    <div className="relative max-w-md mx-auto">
+    <div className="relative mx-auto w-full max-w-[520px]">
       <div className="relative rounded-lg overflow-hidden bg-black aspect-[4/3]">
         {error ? (
           <div className="absolute inset-0 flex items-center justify-center bg-muted">
@@ -340,9 +340,9 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
       {recordingError && <p role="alert" className="mt-2 text-sm text-red-600">{recordingError}</p>}
       {recording && <p className="mt-2 text-center text-sm font-semibold text-red-600">● Merekam video kamera. Video sesi direkam otomatis.</p>}
 
-      <div className="mt-4">
+      <div className="mt-3">
         {/* Control buttons */}
-        <div className="flex justify-center gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
           <Button
             variant="outline"
             onClick={switchCamera}
