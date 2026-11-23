@@ -148,3 +148,26 @@
 .booth-stage-download>div.grid{border-radius:25px;border:1px solid #e2edfc;background:#ffffffee;box-shadow:0 12px 35px #205ba51a}
 @media(max-width:640px){.booth-stage{border-radius:23px;padding:17px}.booth-stage .stage-heading h1{font-size:clamp(24px,6vw,32px)}.booth-steps{gap:5px}.booth-steps>div{padding:7px 9px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){.booth-stage button,.booth-steps>div{transition:none}}
+
+/* Photo journey: compact, fluid stepper and independent countdown */
+.session-progress{padding:13px 20px 15px;border:1px solid #e2ecfb;border-radius:22px;background:linear-gradient(110deg,#fff,#f1f7ff 65%,#fdf4fc);box-shadow:0 10px 30px #2a62a514}
+.session-progress-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:11px;min-height:31px}
+.session-progress-label{display:flex;align-items:center;gap:8px;color:#3473cc;font-size:10px;font-weight:800;letter-spacing:.17em}
+.session-timer{display:flex;align-items:center;gap:8px;padding:5px 11px;border-radius:999px;background:#eaf3ff;color:#1b5cba}
+.session-timer-dot{width:7px;height:7px;border-radius:50%;background:#3986ef;box-shadow:0 0 0 4px #3986ef19;animation:session-pulse 2s ease-in-out infinite}
+.session-timer-caption{font-size:10px;color:#6787b1}
+.session-timer strong{font-size:15px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.session-progress-track{display:flex;align-items:center;width:100%;gap:0}
+.session-progress-step{display:flex;align-items:center;min-width:0;flex:1;gap:9px;color:#95a6be;font-size:12px;font-weight:700;transition:color .35s ease}
+.session-progress-step:last-child{flex:0 0 auto}
+.session-progress-number{display:grid;place-items:center;flex-shrink:0;width:29px;height:29px;border:1px solid #dce7f7;border-radius:50%;background:#fff;color:#93a6c0;font-size:11px;transition:background .35s,color .35s,box-shadow .35s,transform .35s}
+.session-progress-step.is-active{color:#1b5fc6}
+.session-progress-step.is-active .session-progress-number{background:linear-gradient(135deg,#4698ff,#185edb);color:#fff;border-color:transparent;box-shadow:0 4px 13px #2972df50;transform:scale(1.1)}
+.session-progress-step.is-complete{color:#4e85ca}
+.session-progress-step.is-complete .session-progress-number{background:#e5f2ff;color:#2370d6;border-color:#cbe2ff}
+.session-progress-line{height:3px;flex:1;min-width:8px;margin:0 13px;border-radius:10px;background:#e3eaf5;overflow:hidden}
+.session-progress-line>span{display:block;width:0;height:100%;background:linear-gradient(90deg,#75baff,#2875e9);border-radius:inherit;transition:width .55s ease}
+.session-progress-line>span.is-filled{width:100%}
+@keyframes session-pulse{50%{box-shadow:0 0 0 7px #3986ef08}}
+@media(max-width:540px){.session-progress{padding:12px 13px}.session-progress-label{font-size:9px;letter-spacing:.1em}.session-progress-step{flex-direction:column;gap:5px;align-items:flex-start;font-size:10px}.session-progress-line{position:absolute;display:none}.session-progress-track{justify-content:space-between}.session-progress-step{flex:0 1 auto}.session-progress-step:last-child{flex:0 1 auto}.session-progress-number{width:27px;height:27px}.session-timer-caption{display:none}}
+@media(prefers-reduced-motion:reduce){.session-timer-dot{animation:none}.session-progress-number,.session-progress-step,.session-progress-line>span{transition:none}}
