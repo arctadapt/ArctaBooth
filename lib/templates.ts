@@ -130,7 +130,7 @@ export const templates = [
     showPhotoNumber: false,
     photoNumberBgColor: "#000000",
     photoNumberColor: "#ffffff",
-  },,
+  },
   {
     id: "birthday-ticket",
     name: "Birthday Ticket · Black",
