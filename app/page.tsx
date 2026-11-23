@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
+import { upload } from "@vercel/blob/client"
 import SessionMedia from "@/components/session-media"
 import { analyzeFrame, renderCustomFrame, type CustomFrame } from "@/lib/custom-frame"
 import CameraView from "@/components/camera-view"
@@ -247,10 +248,26 @@ export default function Home() {
       takeGifs.forEach((blob, index) => files.push(new File([blob], "gif-take-" + (index + 1) + ".gif", { type: "image/gif" })))
       if (sessionVideo) files.push(new File([sessionVideo], sessionVideo.type === "video/mp4" ? "video-sesi.mp4" : "video-sesi.webm", { type: sessionVideo.type || "video/webm" }))
       if (!mediaReady) throw new Error("GIF masih diproses. Tunggu sebentar.")
-      const form = new FormData()
-      files.forEach(file => form.append("files", file))
-      const response = await fetch("/api/sessions", { method: "POST", body: form })
-      const data = await response.json()
+      const sessionId = crypto.randomUUID()
+      const media: { name: string; url: string; type: string }[] = []
+      for (const file of files) {
+        const uploaded = await upload("sessions/" + sessionId + "/" + file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/sessions/upload",
+          contentType: file.type,
+        })
+        media.push({ name: file.name, url: uploaded.url, type: file.type })
+      }
+      const response = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, media }),
+      })
+      const raw = await response.text()
+      let data: { shareUrl?: string; error?: string } = {}
+      try { data = JSON.parse(raw) } catch {
+        throw new Error(response.status === 413 ? "Ukuran upload terlalu besar." : "Server gagal membuat QR (HTTP " + response.status + "). Coba ulangi.")
+      }
       if (!response.ok || !data.shareUrl) throw new Error(data.error || "Gagal membuat tautan.")
       setShareUrl(data.shareUrl)
     } catch (cause) { setShareError(cause instanceof Error ? cause.message : "Gagal mengunggah hasil sesi.") }
