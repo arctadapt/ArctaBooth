@@ -288,3 +288,21 @@
 @media(max-width:767px),(max-height:559px){
  .booth-template-screen .template-library-scroll{max-height:min(48dvh,360px);overflow-y:auto;overscroll-behavior:contain;padding-right:5px}
 }
+
+/* Finishing filters: visual, selectable presets with real-photo previews. */
+.finishing-filter-panel{padding:13px;border:1px solid #dceafb;border-radius:18px;background:linear-gradient(145deg,#f8fbff,#fff)}
+.finishing-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.finishing-panel-heading .stage-kicker{font-size:9px;letter-spacing:.12em}
+.finishing-current-filter{flex-shrink:0;padding:6px 10px;border-radius:999px;background:#e7f0ff;color:#2566bc;font-size:10px;font-weight:800}
+.finishing-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.finishing-filter-option{position:relative;display:flex;min-width:0;flex-direction:column;gap:5px;align-items:center;padding:5px 5px 8px;border:2px solid transparent;border-radius:13px;background:#fff;color:#65738a;transition:background .15s,border-color .15s,transform .15s}
+.finishing-filter-option:hover{background:#edf5ff;transform:translateY(-1px)}
+.finishing-filter-option.is-selected{border-color:#367deb;background:#edf5ff;color:#195dc1}
+.finishing-filter-thumb{display:block;width:100%;height:clamp(46px,8vh,74px);overflow:hidden;border-radius:9px;background:#dce8f5}
+.finishing-filter-thumb img{width:100%;height:100%;object-fit:cover}
+.finishing-filter-fallback{display:block;width:100%;height:100%;background:linear-gradient(130deg,#ffcaab 15%,#9ab9eb 50%,#5a89c8 80%)}
+.finishing-filter-name{font-size:11px;font-weight:700;line-height:1.3}
+.finishing-filter-check{position:absolute;right:8px;top:8px;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#3177e8;color:#fff;font-size:11px;font-weight:800}
+.finishing-filter-option:focus-visible{outline:3px solid #7cb3ff;outline-offset:2px}
+@media(max-width:420px){.finishing-filter-grid{gap:5px}.finishing-filter-panel{padding:9px}.finishing-filter-name{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.finishing-filter-option{transition:none}}
