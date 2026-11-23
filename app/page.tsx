@@ -26,6 +26,8 @@ export default function Home() {
   const [assignments, setAssignments] = useState<Record<number, number>>({})
   const [pending, setPending] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
+  const [draggingPhoto, setDraggingPhoto] = useState<number | null>(null)
+  const [hoveredSlot, setHoveredSlot] = useState<number | null>(null)
   const [finalImage, setFinalImage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -69,6 +71,71 @@ export default function Home() {
     setPhase(null); setDeadline(null); setStep("welcome")
     setGallery([]); setAssignments({}); setPending(null); setSelectedSlot(null)
     setFinalImage(null); setCustomFrame(null); setMode("builtin"); setError(null)
+  }
+
+  function placePhoto(slot: number, photoIndex: number) {
+    if (photoIndex < 0 || photoIndex >= gallery.length) return
+    setAssignments(previous => ({ ...previous, [slot]: photoIndex }))
+    setSelectedSlot(slot)
+    setHoveredSlot(null)
+  }
+
+  function dropPhoto(event: React.DragEvent<HTMLElement>, slot: number) {
+    event.preventDefault()
+    const raw = event.dataTransfer.getData("text/plain")
+    const index = raw === "" ? draggingPhoto : Number(raw)
+    if (index !== null && index !== undefined && Number.isInteger(index)) placePhoto(slot, index)
+    setDraggingPhoto(null)
+  }
+
+  function slotBoard() {
+    const slot = (index: number, custom = false) => (
+      <button
+        key={index}
+        type="button"
+        aria-label={"Tempat foto " + (index + 1) + ". Tarik foto ke sini atau pilih slot lalu ketuk foto."}
+        onClick={() => setSelectedSlot(index)}
+        onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setHoveredSlot(index) }}
+        onDragLeave={() => setHoveredSlot(previous => previous === index ? null : previous)}
+        onDrop={event => dropPhoto(event, index)}
+        className={"relative flex h-full w-full items-center justify-center overflow-hidden rounded border-2 transition-all " +
+          (hoveredSlot === index ? "border-blue-500 bg-blue-200/60 ring-4 ring-blue-400/40" :
+            selectedSlot === index ? "border-blue-500 ring-2 ring-blue-400" : "border-dashed border-slate-400/70 bg-slate-200/40") +
+          (custom ? " bg-transparent" : "")}
+      >
+        {assigned[index] ? <img src={assigned[index]} alt={"Foto slot " + (index + 1)} className="h-full w-full object-cover" draggable={false} /> :
+          <span className="rounded bg-white/85 px-2 py-1 text-xs font-semibold text-slate-700">Slot {index + 1}</span>}
+        {hoveredSlot === index && <span className="absolute inset-0 flex items-center justify-center bg-blue-500/25 text-sm font-bold text-white">Lepas di sini</span>}
+      </button>
+    )
+    if (mode === "upload" && customFrame) {
+      return <div className="relative mx-auto w-full max-w-[440px]">
+        <img src={customFrame.source} alt="Template dengan area drop foto" className="block h-auto w-full" draggable={false} />
+        {customFrame.slots.map((area, index) => <div key={index} className="absolute" style={{
+          left: (area.x / customFrame.width * 100) + "%",
+          top: (area.y / customFrame.height * 100) + "%",
+          width: (area.width / customFrame.width * 100) + "%",
+          height: (area.height / customFrame.height * 100) + "%"
+        }}>{slot(index, true)}</div>)}
+      </div>
+    }
+    return <div className="mx-auto grid w-full max-w-[300px] grid-cols-1 gap-3 rounded-xl border-8 p-4" style={{ background: template.backgroundColor.startsWith("#") ? template.backgroundColor : "#f4f4f4" }}>
+      {Array.from({ length: slotCount }, (_, index) => <div key={index} className="aspect-square">{slot(index)}</div>)}
+    </div>
+  }
+
+  function galleryBoard() {
+    return <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      {gallery.map((photo, index) => <button key={index} type="button" draggable
+        onDragStart={event => { setDraggingPhoto(index); event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", String(index)) }}
+        onDragEnd={() => { setDraggingPhoto(null); setHoveredSlot(null) }}
+        onClick={() => { if (selectedSlot !== null) placePhoto(selectedSlot, index); else setDraggingPhoto(index) }}
+        className={"relative overflow-hidden rounded-lg border-2 transition-all focus:border-blue-600 " +
+          (draggingPhoto === index ? "border-blue-500 ring-2 ring-blue-400" : "border-transparent hover:border-blue-400")}>
+        <img src={photo} alt={"Foto galeri " + (index + 1)} className="aspect-square w-full object-cover" draggable={false} />
+        <span className="absolute bottom-0 left-0 right-0 bg-black/60 py-1 text-center text-xs text-white">Foto {index + 1}</span>
+      </button>)}
+    </div>
   }
 
   function savePending(slot: number | null) {
@@ -158,7 +225,19 @@ export default function Home() {
 
         {step === "capture" && <BrowserCheck><section className="booth-workspace space-y-5"><div className="text-center"><h1 className="text-3xl font-bold">Sesi Foto</h1><p className="mt-2 text-muted-foreground">Klik Start satu kali, lihat hasilnya, lalu pilih slot. Foto berikutnya hanya diambil setelah kamu klik Start lagi.</p></div><div className="grid gap-6 md:grid-cols-[minmax(0,1.6fr)_minmax(240px,1fr)]"><div className="space-y-4">{pending ? <div className="mx-auto max-w-md space-y-4"><img src={pending} alt="Preview foto baru" className="w-full rounded-lg" /><h2 className="font-semibold">Masukkan foto ini ke slot mana?</h2><div className="grid grid-cols-4 gap-2">{Array.from({ length: slotCount }, (_, i) => <Button key={i} size="sm" variant={selectedSlot === i ? "default" : "outline"} onClick={() => setSelectedSlot(i)}>Slot {i + 1}</Button>)}</div><div className="flex flex-wrap gap-2"><Button disabled={selectedSlot === null} onClick={() => savePending(selectedSlot)}>Insert ke Slot</Button><Button variant="outline" onClick={() => savePending(null)}>Simpan ke Galeri</Button><Button variant="outline" onClick={() => { setPending(null); setSelectedSlot(null) }}>Retake</Button></div></div> : <CameraView onCapture={setPending} autoCapture={false} remainingPhotos={1} />}<Button variant="outline" onClick={() => transition("finishing")}>Selesai Foto Lebih Awal</Button></div><aside className="space-y-4"><div className="rounded-xl border p-4"><h2 className="mb-3 font-semibold">Slot Template · {remaining}/{slotCount}</h2><div className="grid grid-cols-3 gap-2">{Array.from({ length: slotCount }, (_, i) => <div key={i} className="aspect-square overflow-hidden rounded border bg-muted">{assigned[i] ? <img src={assigned[i]} alt={"Slot " + (i + 1)} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Slot {i + 1}</div>}</div>)}</div></div><div><h2 className="mb-2 font-semibold">Galeri · {gallery.length} foto</h2><div className="grid grid-cols-3 gap-2">{gallery.map((photo, i) => <img key={i} src={photo} alt={"Galeri " + (i + 1)} className="aspect-square rounded object-cover" />)}</div></div></aside></div></section></BrowserCheck>}
 
-        {step === "finishing" && <section className="booth-workspace space-y-6"><div className="text-center"><h1 className="text-3xl font-bold">Finishing</h1><p className="mt-2 text-muted-foreground">Pilih slot, lalu klik foto dari galeri untuk menggantinya. Hasil akan diproses otomatis saat waktu habis.</p></div><div className="grid items-start gap-6 md:grid-cols-2"><div className="rounded-xl border bg-muted/30 p-5">{preview()}</div><div className="space-y-4"><h2 className="font-semibold">Atur foto pada template</h2><div className="grid grid-cols-4 gap-2">{Array.from({ length: slotCount }, (_, i) => <Button key={i} size="sm" variant={selectedSlot === i ? "default" : "outline"} onClick={() => setSelectedSlot(i)}>Slot {i + 1}</Button>)}</div><h3 className="font-semibold">Galeri ({gallery.length})</h3><div className="grid grid-cols-4 gap-2">{gallery.map((photo, i) => <button key={i} type="button" disabled={selectedSlot === null} onClick={() => { if (selectedSlot !== null) setAssignments(previous => ({ ...previous, [selectedSlot]: i })) }} className="overflow-hidden rounded border-2 border-transparent focus:border-blue-600 disabled:opacity-50"><img src={photo} alt={"Pilih foto " + (i + 1)} className="aspect-square w-full object-cover" /></button>)}</div><p className="text-xs text-muted-foreground">Pilih slot terlebih dahulu. Satu foto boleh digunakan pada beberapa slot.</p><Button onClick={() => void generate()} disabled={busy || !assigned.some(Boolean)}>{busy ? "Memproses..." : "Selesaikan & Lihat Hasil"}</Button>{error && <p role="alert" className="text-sm text-red-600">{error}</p>}</div></div></section>}
+        {step === "finishing" && <section className="booth-workspace space-y-6">
+          <div className="text-center"><h1 className="text-3xl font-bold">Finishing · Drag & Drop</h1><p className="mt-2 text-muted-foreground">Tarik foto dari galeri ke slot template. Di HP, ketuk slot lalu ketuk foto yang diinginkan.</p></div>
+          <div className="grid items-start gap-6 md:grid-cols-2">
+            <div className="space-y-3 rounded-xl border bg-muted/30 p-5"><h2 className="font-semibold">Template · {slotCount} slot</h2>{slotBoard()}<p className="text-xs text-muted-foreground">Foto yang sama bisa digunakan di beberapa slot. Tarik foto lain untuk mengganti.</p></div>
+            <div className="space-y-4"><h2 className="font-semibold">Galeri hasil foto ({gallery.length})</h2>{galleryBoard()}
+              {gallery.length === 0 && <p className="text-sm text-muted-foreground">Belum ada foto di galeri.</p>}
+              <p className="text-xs text-muted-foreground">Slot terpilih: {selectedSlot === null ? "belum ada" : selectedSlot + 1}. Klik slot, lalu klik foto sebagai alternatif drag & drop.</p>
+              <Button onClick={() => void generate()} disabled={busy || !assigned.some(Boolean)}>{busy ? "Memproses..." : "Selesaikan & Lihat Hasil"}</Button>
+              {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+            </div>
+          </div>
+          <div className="hidden" aria-hidden="true">{mode === "builtin" && <PhotoStrip photos={assigned.map(photo => photo || "/placeholder.svg")} template={template} />}</div>
+        </section>}
 
         {step === "download" && finalImage && <section className="booth-workspace mx-auto max-w-2xl space-y-6 text-center"><div><h1 className="text-3xl font-bold">Your memories are ready!</h1><p className="mt-2 text-muted-foreground">Unduh hasil fotomu. Penyimpanan Google Drive dan QR masih dalam pengembangan.</p></div><img src={finalImage} alt="Hasil akhir photobooth" className="mx-auto max-h-[65vh] max-w-full rounded-lg border object-contain shadow-md" /><div className="flex flex-wrap justify-center gap-3"><Button onClick={download}><Download className="mr-2 h-4 w-4" /> Download PNG</Button><Button variant="outline" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" /> Sesi Baru</Button></div></section>}
       </div>
