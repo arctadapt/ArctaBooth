@@ -244,9 +244,6 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
     return () => window.clearTimeout(timer)
   }, [countdown])
 
-  return () => clearInterval(interval)
-  }, [countdown, capturePhoto])
-
   return (
     <div className="relative max-w-md mx-auto">
       <div className="relative rounded-lg overflow-hidden bg-black aspect-[4/3]">
