@@ -14,6 +14,9 @@ export async function POST(request: NextRequest) {
     if (link.origin !== origin || !/^\/sesi\/[a-f0-9-]{36}$/.test(link.pathname) || !link.searchParams.has("manifest")) {
       return NextResponse.json({ error: "Tautan sesi tidak valid." }, { status: 400 })
     }
+    if (process.env.RESEND_FROM_EMAIL === "onboarding@resend.dev" && email.toLowerCase() !== "l7ksam17@gmail.com") {
+      return NextResponse.json({ error: "Mode pengujian Resend hanya bisa mengirim ke email pemilik akun. Verifikasi domain pengirim untuk mengirim ke alamat lain." }, { status: 403 })
+    }
     if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) {
       return NextResponse.json({ error: "Layanan email belum dikonfigurasi. QR Code tetap bisa digunakan." }, { status: 503 })
     }
