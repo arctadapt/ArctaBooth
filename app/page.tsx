@@ -107,7 +107,7 @@ export default function Home() {
             selectedSlot === index ? "border-blue-500 ring-2 ring-blue-400" : "border-dashed border-slate-400/70 bg-slate-200/40") +
           (custom ? " bg-transparent" : "")}
       >
-        {assigned[index] ? <img src={assigned[index]} alt={"Foto slot " + (index + 1)} className="h-full w-full object-cover" draggable={false} /> :
+        {assigned[index] ? <img src={assigned[index]} alt={"Foto slot " + (index + 1)} className="h-full w-full object-cover" style={{ filter: selectedFilter.filter }} draggable={false} /> :
           <span className="rounded bg-white/85 px-2 py-1 text-xs font-semibold text-slate-700">Slot {index + 1}</span>}
         {hoveredSlot === index && <span className="absolute inset-0 flex items-center justify-center bg-blue-500/25 text-sm font-bold text-white">Lepas di sini</span>}
       </button>
@@ -185,7 +185,7 @@ export default function Home() {
         const element = document.getElementById("photo-strip")
         if (!element) throw new Error("Preview template belum tersedia.")
         const html2canvas = (await import("html2canvas")).default
-        const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 })
+        const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3, onclone: document => { const strip = document.getElementById("photo-strip"); if (strip) strip.style.filter = selectedFilter.filter } })
         image = canvas.toDataURL("image/png")
       }
       phaseRef.current = null; setPhase(null); setDeadline(null)
@@ -232,7 +232,7 @@ export default function Home() {
         {step === "finishing" && <section className="booth-workspace space-y-6">
           <div className="text-center"><h1 className="text-3xl font-bold">Finishing · Drag & Drop</h1><p className="mt-2 text-muted-foreground">Tarik foto dari galeri ke slot template. Di HP, ketuk slot lalu ketuk foto yang diinginkan.</p></div>
           <div className="grid items-start gap-6 md:grid-cols-2">
-            <div className="space-y-3 rounded-xl border bg-muted/30 p-5"><h2 className="font-semibold">Template · {slotCount} slot</h2>{slotBoard()}<p className="text-xs text-muted-foreground">Foto yang sama bisa digunakan di beberapa slot. Tarik foto lain untuk mengganti.</p></div>
+            <div className="space-y-3 rounded-xl border bg-muted/30 p-5"><h2 className="font-semibold">Template · {slotCount} slot</h2><p className="text-xs text-muted-foreground">Filter langsung terlihat pada foto di setiap slot.</p>{slotBoard()}<p className="text-xs text-muted-foreground">Foto yang sama bisa digunakan di beberapa slot. Tarik foto lain untuk mengganti.</p></div>
             <div className="space-y-4"><h2 className="font-semibold">Filter Foto</h2><div className="flex flex-wrap gap-2">{photoFilters.map(filter => <Button key={filter.id} size="sm" variant={selectedFilter.id === filter.id ? "default" : "outline"} onClick={() => setSelectedFilter(filter)}>{filter.name}</Button>)}</div><h2 className="font-semibold">Galeri hasil foto ({gallery.length})</h2>{galleryBoard()}
               {gallery.length === 0 && <p className="text-sm text-muted-foreground">Belum ada foto di galeri.</p>}
               <p className="text-xs text-muted-foreground">Slot terpilih: {selectedSlot === null ? "belum ada" : selectedSlot + 1}. Klik slot, lalu klik foto sebagai alternatif drag & drop.</p>
