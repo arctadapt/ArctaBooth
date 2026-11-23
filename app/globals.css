@@ -128,3 +128,23 @@
 .booth-workspace { border:1px solid #e9eef7; border-radius:24px; padding:clamp(18px,3vw,32px); background:#fff; box-shadow:0 12px 38px #234b7810; }
 @media(max-width:640px) { .booth-hero { border-radius:22px; } .hero-art { height:290px; } .hero-strip { width:125px; gap:6px; padding:9px 9px 12px; } .hero-strip-back { left:15%; } .hero-strip-front { right:17%; } .hero-float { right:0; top:5%; } .booth-feature-bar { margin-left:12px; margin-right:12px; } .feature-unit { padding:13px 18px; } .feature-unit + .feature-unit { border-left:0; border-top:1px solid #edf0f6; } }
 @media(prefers-reduced-motion:reduce) { .hero-cta { transition:none; } }
+
+/* A cohesive, playful photo-studio experience across all four steps. */
+.booth-stage{position:relative;isolation:isolate;overflow:visible;border:1px solid #e4efff;border-radius:30px;background:radial-gradient(ellipse at 96% 3%,#cce7ffb5,transparent 42%),radial-gradient(ellipse at 0% 98%,#fce8f4a6,transparent 35%),linear-gradient(140deg,#f9fcff,#eff7ff 65%,#fffafd);box-shadow:0 20px 55px #32669b16;padding:clamp(18px,2.6vw,34px)}
+.booth-stage .stage-heading h1{color:#152342;letter-spacing:-.045em;line-height:1.15}
+.booth-stage .stage-heading h1 em{font-family:Georgia,"Times New Roman",serif;color:#2872e6;font-weight:400}
+.booth-stage .stage-heading p{color:#7184a1;font-size:13px}
+.stage-kicker{display:inline-flex;align-items:center;justify-content:center;margin-bottom:8px;color:#3875c5;font-size:10px;font-weight:800;letter-spacing:.19em}
+.booth-steps>div{background:#fff;border:1px solid #e5eefb;color:#6d82a0;box-shadow:0 3px 12px #245b9910;transition:background .2s,color .2s,transform .2s}
+.booth-steps>div.bg-primary{background:linear-gradient(110deg,#2775ef,#1758c6);color:white;border-color:transparent;box-shadow:0 8px 18px #2775ef36;transform:translateY(-1px)}
+.booth-stage .rounded-xl.border,.booth-stage .rounded-2xl.border,.booth-stage .rounded-3xl.border{border-color:#e5edf9;background-color:#ffffffeb;box-shadow:0 8px 25px #245b9910}
+.booth-stage button:not(.hero-cta){transition:transform .2s,box-shadow .2s,background .2s}
+.booth-stage button:not(:disabled):hover{transform:translateY(-2px)}
+.booth-stage button:disabled{cursor:not-allowed}
+.booth-stage button.bg-primary{background:linear-gradient(120deg,#2879ef,#185ad2);border-radius:999px;box-shadow:0 8px 19px #2366d52e}
+.booth-stage input[type="email"]{border-radius:15px}
+.booth-stage-template .grid.grid-cols-3>button{border-radius:19px;background:#fff;box-shadow:0 5px 16px #215e9910}
+.booth-stage-template .grid.grid-cols-3>button[aria-pressed="true"]{background:#eff6ff;box-shadow:0 9px 24px #2470e622}
+.booth-stage-download>div.grid{border-radius:25px;border:1px solid #e2edfc;background:#ffffffee;box-shadow:0 12px 35px #205ba51a}
+@media(max-width:640px){.booth-stage{border-radius:23px;padding:17px}.booth-stage .stage-heading h1{font-size:clamp(24px,6vw,32px)}.booth-steps{gap:5px}.booth-steps>div{padding:7px 9px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){.booth-stage button,.booth-steps>div{transition:none}}
