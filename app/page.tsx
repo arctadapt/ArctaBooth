@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
+import SessionMedia from "@/components/session-media"
 import { analyzeFrame, renderCustomFrame, type CustomFrame } from "@/lib/custom-frame"
 import CameraView from "@/components/camera-view"
 import PhotoStrip from "@/components/photo-strip"
@@ -31,6 +32,8 @@ export default function Home() {
   const [draggingPhoto, setDraggingPhoto] = useState<number | null>(null)
   const [hoveredSlot, setHoveredSlot] = useState<number | null>(null)
   const [finalImage, setFinalImage] = useState<string | null>(null)
+  const [sessionGif, setSessionGif] = useState<Blob | null>(null)
+  const [sessionVideo, setSessionVideo] = useState<Blob | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
@@ -97,7 +100,7 @@ export default function Home() {
     phaseRef.current = null
     setPhase(null); setDeadline(null); setStep("welcome")
     setGallery([]); setAssignments({}); setPending(null); setSelectedSlot(null)
-    setFinalImage(null); setShareUrl(null); setShareError(null); setMode("builtin"); setSelectedFilter(photoFilters[0]); setError(null)
+    setFinalImage(null); setSessionGif(null); setSessionVideo(null); setShareUrl(null); setShareError(null); setMode("builtin"); setSelectedFilter(photoFilters[0]); setError(null)
   }
 
   function placePhoto(slot: number, photoIndex: number) {
@@ -214,7 +217,7 @@ export default function Home() {
         image = canvas.toDataURL("image/png")
       }
       phaseRef.current = null; setPhase(null); setDeadline(null)
-      setFinalImage(image); setShareUrl(null); setStep("download")
+      setFinalImage(image); setSessionGif(null); setSessionVideo(null); setShareUrl(null); setStep("download")
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal membuat hasil foto.")
     } finally { setBusy(false) }
@@ -232,6 +235,8 @@ export default function Home() {
         const photoBlob = await (await fetch(gallery[i])).blob()
         files.push(new File([photoBlob], "foto-" + (i + 1) + ".png", { type: "image/png" }))
       }
+      if (sessionGif) files.push(new File([sessionGif], "animasi-sesi.gif", { type: "image/gif" }))
+      if (sessionVideo) files.push(new File([sessionVideo], "video-sesi.webm", { type: "video/webm" }))
       const form = new FormData()
       files.forEach(file => form.append("files", file))
       const response = await fetch("/api/sessions", { method: "POST", body: form })
@@ -289,7 +294,7 @@ export default function Home() {
           <div className="absolute -left-[9999px] top-0 pointer-events-none" aria-hidden="true">{mode === "builtin" && <div style={{ filter: selectedFilter.filter }}><PhotoStrip photos={assigned.map(photo => photo || "/placeholder.svg")} template={template} /></div>}</div>
         </section>}
 
-        {step === "download" && finalImage && <section className="booth-workspace mx-auto max-w-2xl space-y-6 text-center"><div><h1 className="text-3xl font-bold">Your memories are ready!</h1><p className="mt-2 text-muted-foreground">Unduh hasil fotomu atau buat QR Code untuk membuka semua foto sesi dari HP.</p></div><img src={finalImage} alt="Hasil akhir photobooth" className="mx-auto max-h-[65vh] max-w-full rounded-lg border object-contain shadow-md" /><div className="flex flex-wrap justify-center gap-3"><Button onClick={download}><Download className="mr-2 h-4 w-4" /> Download PNG</Button><Button variant="outline" disabled={sharing} onClick={() => void createShareLink()}>{sharing ? "Mengunggah foto..." : shareUrl ? "Buat Ulang QR" : "Buat QR Code"}</Button><Button variant="outline" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" /> Sesi Baru</Button></div>{shareError && <p role="alert" className="text-sm text-red-600">{shareError}</p>}{shareUrl && <div className="mx-auto flex max-w-sm flex-col items-center gap-3 rounded-2xl border bg-white p-5"><p className="font-semibold">Scan QR untuk melihat hasil sesi</p><QRCodeSVG value={shareUrl} size={200} level="M" marginSize={2} /><a href={shareUrl} target="_blank" rel="noopener noreferrer" className="max-w-full break-all text-sm text-blue-600 underline">{shareUrl}</a><Button variant="outline" onClick={() => void navigator.clipboard.writeText(shareUrl)}>Salin Link</Button><p className="text-xs text-slate-500">Siapa pun yang memiliki QR atau tautan ini dapat melihat foto sesi.</p></div>}</section>}
+        {step === "download" && finalImage && <section className="booth-workspace mx-auto max-w-2xl space-y-6 text-center"><div><h1 className="text-3xl font-bold">Your memories are ready!</h1><p className="mt-2 text-muted-foreground">Unduh foto, buat GIF dan video, lalu scan QR Code untuk membuka semuanya di HP.</p></div><img src={finalImage} alt="Hasil akhir photobooth" className="mx-auto max-h-[65vh] max-w-full rounded-lg border object-contain shadow-md" /><SessionMedia photos={gallery} onMediaChange={media => { setSessionGif(media.gif); setSessionVideo(media.video); setShareUrl(null) }} /><div className="flex flex-wrap justify-center gap-3"><Button onClick={download}><Download className="mr-2 h-4 w-4" /> Download PNG</Button><Button variant="outline" disabled={sharing} onClick={() => void createShareLink()}>{sharing ? "Mengunggah foto..." : shareUrl ? "Buat Ulang QR" : "Buat QR Code"}</Button><Button variant="outline" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" /> Sesi Baru</Button></div>{shareError && <p role="alert" className="text-sm text-red-600">{shareError}</p>}{shareUrl && <div className="mx-auto flex max-w-sm flex-col items-center gap-3 rounded-2xl border bg-white p-5"><p className="font-semibold">Scan QR untuk melihat hasil sesi</p><QRCodeSVG value={shareUrl} size={200} level="M" marginSize={2} /><a href={shareUrl} target="_blank" rel="noopener noreferrer" className="max-w-full break-all text-sm text-blue-600 underline">{shareUrl}</a><Button variant="outline" onClick={() => void navigator.clipboard.writeText(shareUrl)}>Salin Link</Button><p className="text-xs text-slate-500">Siapa pun yang memiliki QR atau tautan ini dapat melihat foto, GIF, dan video yang telah dibuat.</p></div>}</section>}
       </div>
     </main>
   )
