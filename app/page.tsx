@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { analyzeFrame, renderCustomFrame, type CustomFrame } from "@/lib/custom-frame"
 import CameraView from "@/components/camera-view"
 import PhotoStrip from "@/components/photo-strip"
-import TemplateSelector from "@/components/template-selector"
 import BrowserCheck from "@/components/browser-check"
 import { Button } from "@/components/ui/button"
 import { templates, photoFilters } from "@/lib/templates"
@@ -20,6 +19,8 @@ export default function Home() {
   const [deadline, setDeadline] = useState<number | null>(null)
   const [seconds, setSeconds] = useState(0)
   const [template, setTemplate] = useState(templates[0])
+  const [builtinTemplates, setBuiltinTemplates] = useState<{ name: string; url: string }[]>([])
+  const [selectedBuiltin, setSelectedBuiltin] = useState<string | null>(null)
   const [mode, setMode] = useState<"builtin" | "upload">("builtin")
   const [customFrame, setCustomFrame] = useState<CustomFrame | null>(null)
   const [gallery, setGallery] = useState<string[]>([])
@@ -34,7 +35,28 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const phaseRef = useRef<Phase | null>(null)
   const finishingRef = useRef<() => void>(() => {})
-  const slotCount = mode === "upload" && customFrame ? customFrame.slots.length : 3
+  const slotCount = customFrame ? customFrame.slots.length : 3
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/templates").then(response => response.json()).then(async (data: { templates: { name: string; url: string }[] }) => {
+      if (cancelled) return
+      setBuiltinTemplates(data.templates)
+      if (data.templates.length) {
+        setSelectedBuiltin(data.templates[0].url)
+        try { setCustomFrame(await analyzeFrame(data.templates[0].url)) }
+        catch (cause) { setError(cause instanceof Error ? cause.message : "Template tidak dapat dibaca.") }
+      }
+    }).catch(() => { if (!cancelled) setError("Gagal memuat template bawaan.") })
+    return () => { cancelled = true }
+  }, [])
+
+  async function chooseBuiltin(url: string) {
+    setBusy(true); setError(null); setSelectedBuiltin(url); setAssignments({})
+    try { setCustomFrame(await analyzeFrame(url)) }
+    catch (cause) { setCustomFrame(null); setError(cause instanceof Error ? cause.message : "Template tidak dapat dibaca.") }
+    finally { setBusy(false) }
+  }
+
   const assigned = Array.from({ length: slotCount }, (_, index) => gallery[assignments[index] ?? -1] ?? "")
   const remaining = Object.keys(assignments).length
   const timeText = String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0")
@@ -71,7 +93,7 @@ export default function Home() {
     phaseRef.current = null
     setPhase(null); setDeadline(null); setStep("welcome")
     setGallery([]); setAssignments({}); setPending(null); setSelectedSlot(null)
-    setFinalImage(null); setCustomFrame(null); setMode("builtin"); setSelectedFilter(photoFilters[0]); setError(null)
+    setFinalImage(null); setMode("builtin"); setSelectedFilter(photoFilters[0]); setError(null)
   }
 
   function placePhoto(slot: number, photoIndex: number) {
@@ -112,7 +134,7 @@ export default function Home() {
         {hoveredSlot === index && <span className="absolute inset-0 flex items-center justify-center bg-blue-500/25 text-sm font-bold text-white">Lepas di sini</span>}
       </button>
     )
-    if (mode === "upload" && customFrame) {
+    if (customFrame) {
       return <div className="relative mx-auto w-full max-w-[440px]">
         <img src={customFrame.source} alt="Template dengan area drop foto" className="block h-auto w-full" draggable={false} />
         {customFrame.slots.map((area, index) => <div key={index} className="absolute" style={{
@@ -178,8 +200,7 @@ export default function Home() {
     try {
       if (!assigned.some(Boolean)) throw new Error("Pilih setidaknya satu foto untuk template.")
       let image: string
-      if (mode === "upload") {
-        if (!customFrame) throw new Error("Upload template terlebih dahulu.")
+      if (customFrame) {
         image = await renderCustomFrame(customFrame, assigned, selectedFilter.filter)
       } else {
         const element = document.getElementById("photo-strip")
@@ -203,7 +224,7 @@ export default function Home() {
   }
 
   function preview() {
-    if (mode === "upload" && customFrame) {
+    if (customFrame) {
       return <div className="space-y-2"><img src={customFrame.source} alt="Template upload" className="mx-auto max-h-[440px] max-w-full object-contain" /><p className="text-center text-xs text-muted-foreground">{slotCount} slot terdeteksi. Dekorasi template dipertahankan pada hasil akhir.</p></div>
     }
     return <div style={{ filter: selectedFilter.filter }}><PhotoStrip photos={assigned.map(photo => photo || "/placeholder.svg")} template={template} /></div>
@@ -225,7 +246,7 @@ export default function Home() {
           <div className="booth-feature-bar relative z-20 mx-auto -mt-7 grid max-w-4xl gap-0 sm:grid-cols-3"><div className="feature-unit"><span className="feature-icon"><Camera className="h-5 w-5" /></span><span><strong>Snap your photos</strong><small>One shot at a time</small></span></div><div className="feature-unit"><span className="feature-icon"><ImageIcon className="h-5 w-5" /></span><span><strong>Choose your template</strong><small>Built-in or upload yours</small></span></div><div className="feature-unit"><span className="feature-icon"><Download className="h-5 w-5" /></span><span><strong>Save your memories</strong><small>Download your photo strip</small></span></div></div>
         </>}
 
-        {step === "template" && <section className="booth-workspace mx-auto max-w-5xl space-y-5"><div className="text-center"><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Pilih Template</h1><p className="mt-1 text-sm text-muted-foreground">Pilih desain favoritmu, lalu mulai sesi foto.</p></div><div className="grid items-start gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]"><div className="space-y-4"><div className="flex flex-wrap gap-2"><Button variant={mode === "builtin" ? "default" : "outline"} onClick={() => { setMode("builtin"); setAssignments({}); setError(null) }}>Template Bawaan</Button><Button variant={mode === "upload" ? "default" : "outline"} onClick={() => { setMode("upload"); setAssignments({}); setError(null) }}>Upload Template</Button></div>{mode === "builtin" ? <TemplateSelector templates={templates} selectedTemplate={template} onSelect={setTemplate} /> : <div className="space-y-3 rounded-xl border border-dashed p-5"><h2 className="font-semibold">Upload template sendiri</h2><p className="text-sm text-muted-foreground">PNG, JPG, atau WebP. Kotak hijau menandai area foto; jumlah slot dibaca otomatis.</p><input aria-label="Pilih file template" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => void uploadTemplate(event.target.files?.[0])} className="block w-full text-sm" />{customFrame && <p className="text-sm font-semibold">{customFrame.slots.length} slot foto terdeteksi</p>}</div>}</div><div className="space-y-3 rounded-2xl border bg-slate-50/70 p-4"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Preview template</h2><span className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-500">Live preview</span></div><div className="mx-auto max-w-[200px]">{preview()}</div><p className="text-center text-xs text-muted-foreground">{mode === "builtin" ? template.name : customFrame ? customFrame.slots.length + " slot foto" : "Upload template untuk preview"}</p></div></div>{error && <p role="alert" className="text-sm text-red-600">{error}</p>}<div className="flex justify-end"><Button disabled={busy || (mode === "upload" && !customFrame)} onClick={() => transition("capture")}>Mulai Sesi Foto <ArrowRight className="ml-2 h-4 w-4" /></Button></div></section>}
+        {step === "template" && <section className="booth-workspace mx-auto max-w-5xl space-y-5"><div className="text-center"><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Pilih Template</h1><p className="mt-1 text-sm text-muted-foreground">Pilih desain favoritmu, lalu mulai sesi foto.</p></div><div className="grid items-start gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]"><div className="space-y-4"><div className="flex flex-wrap gap-2"><Button variant={mode === "builtin" ? "default" : "outline"} onClick={() => { setMode("builtin"); setAssignments({}); setError(null); if (selectedBuiltin) void chooseBuiltin(selectedBuiltin) }}>Template Bawaan</Button><Button variant={mode === "upload" ? "default" : "outline"} onClick={() => { setMode("upload"); setCustomFrame(null); setAssignments({}); setError(null) }}>Upload Template</Button></div>{mode === "builtin" ? <div className="space-y-3"><p className="text-sm font-semibold">Koleksi Template · {builtinTemplates.length} desain</p><div className="grid grid-cols-3 gap-3">{builtinTemplates.map(item => <button type="button" key={item.url} onClick={() => void chooseBuiltin(item.url)} aria-pressed={selectedBuiltin === item.url} className={"rounded-xl border-2 p-2 transition-all hover:-translate-y-0.5 hover:shadow-md " + (selectedBuiltin === item.url ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white")}><img src={item.url} alt={item.name} className="mx-auto h-32 w-full rounded-lg object-contain" /><p className="mt-2 truncate text-xs font-semibold capitalize">{item.name}</p></button>)}</div>{!builtinTemplates.length && <p className="text-sm text-muted-foreground">Belum ada gambar di public/templates.</p>}</div> : <div className="space-y-3 rounded-xl border border-dashed p-5"><h2 className="font-semibold">Upload template sendiri</h2><p className="text-sm text-muted-foreground">PNG, JPG, atau WebP. Kotak hijau menandai area foto; jumlah slot dibaca otomatis.</p><input aria-label="Pilih file template" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => void uploadTemplate(event.target.files?.[0])} className="block w-full text-sm" />{customFrame && <p className="text-sm font-semibold">{customFrame.slots.length} slot foto terdeteksi</p>}</div>}</div><div className="space-y-3 rounded-2xl border bg-slate-50/70 p-4"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Preview template</h2><span className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-500">Live preview</span></div><div className="mx-auto max-w-[200px]">{preview()}</div><p className="text-center text-xs text-muted-foreground">{customFrame ? customFrame.slots.length + " slot foto" : "Pilih template"}</p></div></div>{error && <p role="alert" className="text-sm text-red-600">{error}</p>}<div className="flex justify-end"><Button disabled={busy || !customFrame} onClick={() => transition("capture")}>Mulai Sesi Foto <ArrowRight className="ml-2 h-4 w-4" /></Button></div></section>}
 
         {step === "capture" && <BrowserCheck><section className="booth-workspace space-y-5"><div className="text-center"><h1 className="text-3xl font-bold">Sesi Foto</h1><p className="mt-2 text-muted-foreground">Klik Start, lalu tarik foto hasil jepretan ke slot template. Foto dari galeri juga bisa ditarik untuk mengganti slot.</p></div><div className="grid gap-6 md:grid-cols-[minmax(0,1.6fr)_minmax(240px,1fr)]"><div className="space-y-4">{pending ? <div className="mx-auto max-w-md space-y-4"><div draggable onDragStart={event => { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("application/x-arctabooth-pending", "true") }} onDragEnd={() => setHoveredSlot(null)} className="cursor-grab rounded-lg border-2 border-dashed border-blue-400 p-2"><img src={pending} alt="Tarik foto baru ke slot" className="w-full rounded-lg" draggable={false} /><p className="py-2 text-center text-sm font-semibold text-blue-600">Tarik foto ke slot template</p></div><h2 className="font-semibold">Tarik foto ke slot template, atau ketuk slot tujuan.</h2><div className="grid grid-cols-4 gap-2">{Array.from({ length: slotCount }, (_, i) => <Button key={i} size="sm" variant={selectedSlot === i ? "default" : "outline"} onClick={() => setSelectedSlot(i)}>Slot {i + 1}</Button>)}</div><div className="flex flex-wrap gap-2"><Button disabled={selectedSlot === null} onClick={() => savePending(selectedSlot)}>Insert ke Slot</Button><Button variant="outline" onClick={() => savePending(null)}>Simpan ke Galeri</Button><Button variant="outline" onClick={() => { setPending(null); setSelectedSlot(null) }}>Retake</Button></div></div> : <CameraView onCapture={setPending} autoCapture={false} remainingPhotos={1} />}<Button variant="outline" onClick={() => transition("finishing")}>Selesai Foto Lebih Awal</Button></div><aside className="space-y-4"><div className="rounded-xl border p-4"><h2 className="mb-3 font-semibold">Slot Template · {remaining}/{slotCount}</h2><div className="grid grid-cols-3 gap-2">{Array.from({ length: slotCount }, (_, i) => <div key={i} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setHoveredSlot(i) }} onDragLeave={() => setHoveredSlot(null)} onDrop={event => dropPhoto(event, i)} onClick={() => { if (pending) savePending(i); else if (draggingPhoto !== null) placePhoto(i, draggingPhoto); else setSelectedSlot(i) }} role="button" tabIndex={0} aria-label={"Drop foto ke slot " + (i + 1)} className={"aspect-square cursor-pointer overflow-hidden rounded border-2 bg-muted " + (hoveredSlot === i ? "border-blue-500 ring-2 ring-blue-400" : "border-slate-300")}>{assigned[i] ? <img src={assigned[i]} alt={"Slot " + (i + 1)} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Slot {i + 1}</div>}</div>)}</div></div><div><h2 className="mb-2 font-semibold">Galeri · {gallery.length} foto</h2><div className="grid grid-cols-3 gap-2">{gallery.map((photo, i) => <img key={i} src={photo} alt={"Galeri " + (i + 1)} draggable onDragStart={event => { setDraggingPhoto(i); event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", String(i)) }} onDragEnd={() => { setDraggingPhoto(null); setHoveredSlot(null) }} onClick={() => { if (selectedSlot !== null) placePhoto(selectedSlot, i); else setDraggingPhoto(i) }} className="aspect-square cursor-grab rounded object-cover" />)}</div></div></aside></div></section></BrowserCheck>}
 
