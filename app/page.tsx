@@ -356,7 +356,6 @@ export default function Home() {
             </div>
             <div className="capture-side min-w-0 space-y-3">
               <div className="capture-template-preview rounded-2xl border border-blue-100 bg-white/90 p-3 sm:p-4"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-bold text-slate-800">Template Kamu</h2><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-600">{remaining}/{slotCount} terisi</span></div><div className="capture-strip mx-auto">{slotBoard()}</div><p className="mt-2 text-center text-[11px] text-slate-500">{pending ? "Ketuk slot untuk langsung memasukkan foto, atau tarik foto ke slot" : "Ambil foto terlebih dahulu, lalu isi slot template"}</p></div>
-              </div>
           </div>
         </section></BrowserCheck>}
 
