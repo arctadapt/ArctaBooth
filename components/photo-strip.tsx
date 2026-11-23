@@ -17,14 +17,14 @@ export default function PhotoStrip({ photos, template }: PhotoStripProps) {
       if (containerRef.current) {
         const width = containerRef.current.offsetWidth
         // Untuk 3 foto persegi dengan sedikit ruang di antara
-        containerRef.current.style.height = `${width * 3.2}px`
+        containerRef.current.style.height = `${width * (photos.length + 0.45)}px`
       }
     }
 
     updateHeight()
     window.addEventListener("resize", updateHeight)
     return () => window.removeEventListener("resize", updateHeight)
-  }, [])
+  }, [photos.length])
 
   if (photos.length < 3) {
     return null
