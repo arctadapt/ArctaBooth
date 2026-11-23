@@ -41,6 +41,10 @@ export default function Home() {
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
+  const [email, setEmail] = useState("")
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailStatus, setEmailStatus] = useState<string | null>(null)
+  const uploadStartedRef = useRef(false)
   const [selectedFilter, setSelectedFilter] = useState(photoFilters[0])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -104,7 +108,7 @@ export default function Home() {
     phaseRef.current = null
     setPhase(null); setDeadline(null); setStep("welcome")
     setGallery([]); setAssignments({}); setPending(null); setSelectedSlot(null)
-    setFinalImage(null); setSessionGif(null); setTakeGifs([]); setTakeFrames([]); setMediaReady(false); setSessionVideo(null); setCameraVideo(null); setShareUrl(null); setShareError(null); setMode("builtin"); setSelectedFilter(photoFilters[0]); setError(null)
+    setFinalImage(null); setSessionGif(null); setTakeGifs([]); setTakeFrames([]); setMediaReady(false); setSessionVideo(null); setCameraVideo(null); setShareUrl(null); setShareError(null); setEmail(""); setEmailStatus(null); uploadStartedRef.current = false; setMode("builtin"); setSelectedFilter(photoFilters[0]); setError(null)
   }
 
   function placePhoto(slot: number, photoIndex: number) {
@@ -221,7 +225,7 @@ export default function Home() {
         image = canvas.toDataURL("image/png")
       }
       phaseRef.current = null; setPhase(null); setDeadline(null)
-      setFinalImage(image); setSessionGif(null); setTakeGifs([]); setMediaReady(false); setSessionVideo(cameraVideo); setShareUrl(null); setStep("download")
+      setFinalImage(image); setSessionGif(null); setTakeGifs([]); setMediaReady(false); uploadStartedRef.current = false; setSessionVideo(cameraVideo); setShareUrl(null); setStep("download")
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal membuat hasil foto.")
     } finally { setBusy(false) }
@@ -251,6 +255,25 @@ export default function Home() {
       setShareUrl(data.shareUrl)
     } catch (cause) { setShareError(cause instanceof Error ? cause.message : "Gagal mengunggah hasil sesi.") }
     finally { setSharing(false) }
+  }
+
+  useEffect(() => {
+    if (step !== "download" || !finalImage || !mediaReady || uploadStartedRef.current) return
+    uploadStartedRef.current = true
+    void createShareLink()
+  }, [step, finalImage, mediaReady])
+
+  async function sendSessionEmail(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!shareUrl || emailSending) return
+    setEmailSending(true); setEmailStatus(null)
+    try {
+      const response = await fetch("/api/sessions/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim(), shareUrl }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "Gagal mengirim email.")
+      setEmailStatus("Tautan hasil sesi berhasil dikirim ke email.")
+    } catch (cause) { setEmailStatus(cause instanceof Error ? cause.message : "Gagal mengirim email.") }
+    finally { setEmailSending(false) }
   }
 
   const handleMediaChange = useCallback((media: { compilation: Blob | null; takes: Blob[] }) => {
@@ -304,7 +327,22 @@ export default function Home() {
           <div className="absolute -left-[9999px] top-0 pointer-events-none" aria-hidden="true">{mode === "builtin" && <div style={{ filter: selectedFilter.filter }}><PhotoStrip photos={assigned.map(photo => photo || "/placeholder.svg")} template={template} /></div>}</div>
         </section>}
 
-        {step === "download" && finalImage && <section className="booth-workspace mx-auto max-w-2xl space-y-6 text-center"><div><h1 className="text-3xl font-bold">Your memories are ready!</h1><p className="mt-2 text-muted-foreground">Foto, GIF setiap take, GIF gabungan, dan video sesi dibuat otomatis. Scan QR untuk mengakses semuanya.</p></div><img src={finalImage} alt="Hasil akhir photobooth" className="mx-auto max-h-[65vh] max-w-full rounded-lg border object-contain shadow-md" /><SessionMedia photos={gallery} takeFrames={takeFrames} cameraVideo={cameraVideo} onMediaChange={handleMediaChange} /><div className="flex flex-wrap justify-center gap-3"><Button onClick={download}><Download className="mr-2 h-4 w-4" /> Download PNG</Button><Button variant="outline" disabled={sharing || !mediaReady} onClick={() => void createShareLink()}>{sharing ? "Mengunggah foto..." : shareUrl ? "Buat Ulang QR" : "Buat QR Code"}</Button><Button variant="outline" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" /> Sesi Baru</Button></div>{shareError && <p role="alert" className="text-sm text-red-600">{shareError}</p>}{shareUrl && <div className="mx-auto flex max-w-sm flex-col items-center gap-3 rounded-2xl border bg-white p-5"><p className="font-semibold">Scan QR untuk melihat hasil sesi</p><QRCodeSVG value={shareUrl} size={200} level="M" marginSize={2} /><a href={shareUrl} target="_blank" rel="noopener noreferrer" className="max-w-full break-all text-sm text-blue-600 underline">{shareUrl}</a><Button variant="outline" onClick={() => void navigator.clipboard.writeText(shareUrl)}>Salin Link</Button><p className="text-xs text-slate-500">Siapa pun yang memiliki QR atau tautan ini dapat melihat foto, GIF, dan video yang telah dibuat.</p></div>}</section>}
+        {step === "download" && finalImage && <section className="booth-workspace mx-auto flex min-h-[65vh] max-w-xl flex-col items-center justify-center gap-6 text-center">
+          <div className="space-y-2"><h1 className="text-3xl font-bold">Your memories are ready!</h1><p className="text-muted-foreground">Scan QR Code atau kirim tautan ke email untuk mengakses semua foto, GIF, dan video.</p></div>
+          <div className="hidden" aria-hidden="true"><SessionMedia photos={gallery} takeFrames={takeFrames} cameraVideo={cameraVideo} onMediaChange={handleMediaChange} /></div>
+          {shareUrl ? <div className="flex w-full flex-col items-center gap-5 rounded-3xl border bg-white p-7 shadow-sm">
+            <QRCodeSVG value={shareUrl} size={240} level="M" marginSize={2} />
+            <p className="text-sm text-slate-600">Scan untuk membuka dan mengunduh seluruh hasil sesi.</p>
+            <Button variant="outline" onClick={() => void navigator.clipboard.writeText(shareUrl)}>Salin Tautan</Button>
+            <form onSubmit={event => void sendSessionEmail(event)} className="w-full space-y-3 border-t pt-5">
+              <label htmlFor="session-email" className="block text-left text-sm font-semibold">Kirim hasil ke email</label>
+              <input id="session-email" type="email" required autoComplete="email" placeholder="nama@email.com" value={email} onChange={event => setEmail(event.target.value)} className="w-full rounded-xl border px-4 py-3 text-sm text-slate-900" />
+              <Button type="submit" disabled={emailSending} className="w-full">{emailSending ? "Mengirim..." : "Kirim ke Email"}</Button>
+              {emailStatus && <p role="status" className="text-sm text-slate-600">{emailStatus}</p>}
+            </form>
+          </div> : <div className="w-full space-y-3 rounded-2xl border p-8"><div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" /><p className="text-sm text-slate-600">{sharing ? "Mengunggah semua hasil sesi..." : mediaReady ? "Menyiapkan QR Code..." : "Menyiapkan foto, GIF, dan video..."}</p>{shareError && <p role="alert" className="text-sm text-red-600">{shareError}</p>}{shareError && <Button variant="outline" onClick={() => void createShareLink()}>Coba Lagi</Button>}</div>}
+          <Button variant="ghost" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" /> Sesi Baru</Button>
+        </section>}
       </div>
     </main>
   )
