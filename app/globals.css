@@ -171,3 +171,22 @@
 @keyframes session-pulse{50%{box-shadow:0 0 0 7px #3986ef08}}
 @media(max-width:540px){.session-progress{padding:12px 13px}.session-progress-label{font-size:9px;letter-spacing:.1em}.session-progress-step{flex-direction:column;gap:5px;align-items:flex-start;font-size:10px}.session-progress-line{position:absolute;display:none}.session-progress-track{justify-content:space-between}.session-progress-step{flex:0 1 auto}.session-progress-step:last-child{flex:0 1 auto}.session-progress-number{width:27px;height:27px}.session-timer-caption{display:none}}
 @media(prefers-reduced-motion:reduce){.session-timer-dot{animation:none}.session-progress-number,.session-progress-step,.session-progress-line>span{transition:none}}
+
+/* Fluid, compact booth proportions; camera-first capture layout */
+.booth-app{font-size:14px}
+.booth-hero .hero-heading{font-size:clamp(2.65rem,5vw,4.9rem)}
+.booth-hero .hero-strip{width:clamp(108px,12vw,145px);gap:6px;padding:10px 10px 13px}
+.booth-feature-bar .feature-unit{padding:13px 18px}
+.booth-stage{padding:clamp(14px,1.8vw,24px)}
+.booth-stage .stage-heading h1{font-size:clamp(1.5rem,2.6vw,2rem)}
+.booth-stage-template .grid.grid-cols-3 img{max-height:110px}
+.capture-layout{align-items:start}
+.capture-camera-panel,.capture-template-preview,.capture-gallery{box-shadow:0 5px 18px #235e9b0b}
+.capture-camera-panel .aspect-\[4\/3\]{border-radius:16px}
+.capture-camera-panel button{font-size:12px}
+.capture-strip{width:min(100%,230px)}
+.capture-strip>div{max-width:100%}
+.capture-gallery{min-height:95px}
+@media(min-width:1024px) and (max-height:760px){.booth-hero .hero-art{height:235px}.booth-stage{padding:14px}.session-progress{padding:9px 15px}.capture-strip{width:min(100%,175px)}}
+@media(max-width:767px){.booth-hero .hero-art{height:235px}.booth-hero .hero-heading{font-size:clamp(2.6rem,10vw,4rem)}.booth-stage{padding:14px}.capture-strip{width:min(100%,240px)}}
+@media(max-width:420px){.capture-camera-panel,.capture-template-preview,.capture-gallery{padding:10px}.capture-heading h1{font-size:22px}.booth-hero .hero-strip{width:112px}}
