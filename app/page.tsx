@@ -10,7 +10,7 @@ import PhotoStrip from "@/components/photo-strip"
 import BrowserCheck from "@/components/browser-check"
 import { Button } from "@/components/ui/button"
 import { templates, photoFilters } from "@/lib/templates"
-import { ArrowRight, Camera, Download, RotateCcw, Sparkles, Image as ImageIcon, ShieldCheck, Heart, Aperture } from "lucide-react"
+import { Mail, ArrowRight, Camera, Download, RotateCcw, Sparkles, Image as ImageIcon, ShieldCheck, Heart, Aperture } from "lucide-react"
 
 type Step = "welcome" | "template" | "capture" | "finishing" | "download"
 type Phase = "template" | "capture" | "finishing"
@@ -347,17 +347,30 @@ export default function Home() {
         {step === "download" && finalImage && <section className="booth-workspace mx-auto flex w-full max-w-5xl flex-col items-center justify-center gap-3 text-center lg:min-h-[calc(100dvh-175px)]">
           <div className="space-y-2"><h1 className="text-3xl font-bold">Your memories are ready!</h1><p className="text-muted-foreground">Scan QR Code atau kirim tautan ke email untuk mengakses semua foto, GIF, dan video.</p></div>
           <div className="hidden" aria-hidden="true"><SessionMedia photos={gallery} takeFrames={takeFrames} cameraVideo={cameraVideo} onMediaChange={handleMediaChange} /></div>
-          {shareUrl ? <div className="grid w-full items-center gap-5 rounded-3xl border bg-white p-5 shadow-sm sm:grid-cols-[minmax(240px,0.85fr)_minmax(0,1.15fr)] lg:p-7">
-            <div className="flex flex-col items-center justify-center gap-3"><QRCodeSVG value={shareUrl} size={210} level="M" marginSize={2} /><p className="text-xs font-medium text-slate-500">Scan QR untuk membuka Google Drive</p></div>
-            
-            
-            <form onSubmit={event => void sendSessionEmail(event)} className="w-full space-y-3 text-left">
-              <label htmlFor="session-email" className="block text-left text-sm font-semibold">Kirim hasil ke email</label>
-              <input id="session-email" type="email" required autoComplete="email" placeholder="nama@email.com" value={email} onChange={event => setEmail(event.target.value)} className="w-full rounded-xl border px-4 py-3 text-sm text-slate-900" />
-              <Button type="submit" disabled={emailSending} className="w-full">{emailSending ? "Mengirim..." : "Kirim ke Email"}</Button>
-              {emailStatus && <p role="status" className="text-sm text-slate-600">{emailStatus}</p>}<Button type="button" variant="outline" className="w-full" onClick={() => void navigator.clipboard.writeText(shareUrl)}>Salin Tautan Google Drive</Button>
+          <div className="grid w-full items-stretch gap-5 rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm sm:grid-cols-[minmax(240px,0.85fr)_minmax(0,1.15fr)] lg:p-7">
+            <div className="flex min-h-[275px] flex-col items-center justify-center gap-3 rounded-2xl bg-slate-50 p-5 text-center">
+              {shareUrl ? <>
+                <QRCodeSVG value={shareUrl} size={205} level="M" marginSize={2} />
+                <p className="text-xs font-medium text-slate-600">Scan QR untuk membuka Google Drive</p>
+              </> : <>
+                <div className="flex h-[205px] w-[205px] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-slate-300 bg-white">
+                  <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                  <span className="text-xs text-slate-500">Menyiapkan QR Code...</span>
+                </div>
+                <p className="text-xs text-slate-500">{sharing ? "Mengunggah hasil sesi ke Google Drive" : mediaReady ? "Menyiapkan tautan sesi" : "Memproses foto, GIF, dan video"}</p>
+                {shareError && <p role="alert" className="text-sm text-red-600">{shareError}</p>}
+                {shareError && <Button size="sm" variant="outline" onClick={() => void createShareLink()}>Coba Lagi</Button>}
+              </>}
+            </div>
+            <form onSubmit={event => void sendSessionEmail(event)} className="flex w-full flex-col justify-center gap-4 rounded-2xl border border-slate-100 bg-white p-2 sm:p-4">
+              <div className="space-y-1"><div className="flex items-center gap-2 text-blue-600"><Mail className="h-5 w-5" /><span className="text-xs font-semibold uppercase tracking-widest">ArctaBooth Delivery</span></div><h2 className="text-xl font-bold tracking-tight text-slate-900">Kirim kenanganmu</h2><p className="text-sm leading-6 text-slate-500">Masukkan email sekarang. Kamu bisa menyiapkannya sambil menunggu QR Code.</p></div>
+              <div className="space-y-2"><label htmlFor="session-email" className="block text-sm font-semibold text-slate-700">Alamat email penerima</label><input id="session-email" type="email" required autoComplete="email" placeholder="contoh@email.com" value={email} onChange={event => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100" /></div>
+              <Button type="submit" disabled={emailSending || !shareUrl} className="w-full">{emailSending ? "Mengirim email..." : shareUrl ? "Kirim Hasil ke Email" : "Menunggu QR Code Siap..."}</Button>
+              {emailStatus && <p role="status" className="text-sm text-slate-600">{emailStatus}</p>}
+              <Button type="button" variant="outline" disabled={!shareUrl} className="w-full" onClick={() => { if (shareUrl) void navigator.clipboard.writeText(shareUrl) }}>Salin Tautan Google Drive</Button>
+              <p className="text-center text-xs text-slate-400">Foto, GIF, dan video tersedia dalam satu folder sesi.</p>
             </form>
-          </div> : <div className="w-full space-y-3 rounded-2xl border p-8"><div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" /><p className="text-sm text-slate-600">{sharing ? "Mengunggah semua hasil sesi..." : mediaReady ? "Menyiapkan QR Code..." : "Menyiapkan foto, GIF, dan video..."}</p>{shareError && <p role="alert" className="text-sm text-red-600">{shareError}</p>}{shareError && <Button variant="outline" onClick={() => void createShareLink()}>Coba Lagi</Button>}</div>}
+          </div>
           <Button variant="ghost" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" /> Sesi Baru</Button>
         </section>}
       </div>
