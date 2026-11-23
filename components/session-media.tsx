@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { GIFEncoder, quantize, applyPalette } from "gifenc"
 import { Button } from "@/components/ui/button"
 
-type Props = { photos: string[]; onMediaChange: (media: { gif: Blob | null; video: Blob | null }) => void }
+type Props = { photos: string[]; cameraVideo?: Blob | null; onMediaChange: (media: { gif: Blob | null; video: Blob | null }) => void }
 const SIZE = 480
 
 function load(src: string): Promise<HTMLImageElement> {
@@ -27,9 +27,17 @@ function save(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export default function SessionMedia({ photos, onMediaChange }: Props) {
+export default function SessionMedia({ photos, cameraVideo, onMediaChange }: Props) {
   const [gif, setGif] = useState<Blob | null>(null)
-  const [video, setVideo] = useState<Blob | null>(null)
+  const [video, setVideo] = useState<Blob | null>(cameraVideo ?? null)
+  const [cameraVideoUrl, setCameraVideoUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!cameraVideo) return
+    setVideo(cameraVideo)
+    const url = URL.createObjectURL(cameraVideo)
+    setCameraVideoUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [cameraVideo])
   const [working, setWorking] = useState<"gif" | "video" | null>(null)
   const [error, setError] = useState<string | null>(null)
   const canMake = photos.length > 0
@@ -96,10 +104,11 @@ export default function SessionMedia({ photos, onMediaChange }: Props) {
 
   return <div className="space-y-3 rounded-2xl border bg-white p-5">
     <h2 className="font-semibold">GIF & Video dari Sesi Foto</h2>
-    <p className="text-sm text-slate-500">Gabungkan foto galeri menjadi GIF animasi atau video slideshow WebM. File yang dibuat juga ikut tersedia melalui QR Code.</p>
+    <p className="text-sm text-slate-500">Buat GIF dari foto atau video slideshow. Jika kamu merekam kamera saat sesi, rekaman asli akan disertakan dalam QR Code.</p>
+    {cameraVideoUrl && <div className="space-y-2"><p className="text-sm font-semibold">Rekaman asli dari kamera</p><video controls playsInline src={cameraVideoUrl} className="mx-auto max-h-64 w-full rounded-xl bg-black" /><Button variant="outline" onClick={() => cameraVideo && save(cameraVideo, cameraVideo.type === "video/mp4" ? "arctabooth-rekaman.mp4" : "arctabooth-rekaman.webm")}>Unduh Rekaman Kamera</Button></div>}
     <div className="flex flex-wrap justify-center gap-3">
       <Button variant="outline" disabled={!canMake || !!working} onClick={() => void makeGif()}>{working === "gif" ? "Membuat GIF..." : gif ? "Buat Ulang GIF" : "Buat & Unduh GIF"}</Button>
-      <Button variant="outline" disabled={!canMake || !!working} onClick={() => void makeVideo()}>{working === "video" ? "Membuat video..." : video ? "Buat Ulang Video" : "Buat & Unduh Video"}</Button>
+      <Button variant="outline" disabled={!canMake || !!working} onClick={() => void makeVideo()}>{working === "video" ? "Membuat video..." : video ? "Buat Ulang Video" : "Buat Video Slideshow"}</Button>
     </div>
     <p className="text-xs text-slate-500">Status: GIF {gif ? "siap" : "belum dibuat"} · Video {video ? "siap" : "belum dibuat"}. Buat media sebelum menekan Buat QR Code.</p>
     {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
