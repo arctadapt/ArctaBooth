@@ -2,8 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Camera, RefreshCw, FlipVerticalIcon as Flip, Sparkles } from "lucide-react"
-import { photoFilters, type PhotoFilter } from "@/lib/templates"
+import { Camera, RefreshCw, FlipVerticalIcon as Flip } from "lucide-react"
 
 interface CameraViewProps {
   onCapture: (photoDataUrl: string) => void
@@ -21,8 +20,6 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
   const [debugInfo, setDebugInfo] = useState<string>("")
   const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("user")
   const [isMirrored, setIsMirrored] = useState(true)
-  const [selectedFilter, setSelectedFilter] = useState<PhotoFilter>(photoFilters[0])
-  const [showFilters, setShowFilters] = useState(false)
   const [sessionStarted, setSessionStarted] = useState(false)
   const captureRef = useRef<() => void>(() => {})
   const onCaptureRef = useRef(onCapture)
@@ -200,23 +197,10 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
           context.setTransform(1, 0, 0, 1, 0, 0)
         }
 
-        // Buat canvas baru untuk menerapkan filter
-        const filteredCanvas = document.createElement("canvas")
-        filteredCanvas.width = size
-        filteredCanvas.height = size
-        const filteredContext = filteredCanvas.getContext("2d")
-
-        if (filteredContext) {
-          // Terapkan filter menggunakan CSS filter
-          filteredContext.filter = selectedFilter.filter
-          filteredContext.drawImage(canvas, 0, 0)
-
-          const photoDataUrl = filteredCanvas.toDataURL("image/jpeg", 0.9) // Kualitas 90%
-          onCaptureRef.current(photoDataUrl)
-        }
+        onCaptureRef.current(canvas.toDataURL("image/jpeg", 0.9))
       }
     }
-  }, [isCameraReady, isMirrored, selectedFilter.filter])
+  }, [isCameraReady, isMirrored])
   captureRef.current = capturePhoto
 
   const startCountdown = useCallback(() => {
@@ -265,7 +249,7 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
                 webkit-playsinline="true"
                 muted
                 className={`min-w-full min-h-full object-cover ${isMirrored ? "scale-x-[-1]" : ""}`}
-                style={{ filter: selectedFilter.filter }}
+                
               />
             </div>
 
@@ -295,25 +279,6 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
       <canvas ref={canvasRef} className="hidden" />
 
       <div className="mt-4">
-        {/* Filter selector */}
-        {showFilters && (
-          <div className="mb-4 overflow-x-auto">
-            <div className="flex gap-2 pb-2">
-              {photoFilters.map((filter) => (
-                <button
-                  key={filter.id}
-                  onClick={() => setSelectedFilter(filter)}
-                  className={`flex-shrink-0 px-3 py-1 rounded-full text-sm ${
-                    selectedFilter.id === filter.id ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent"
-                  }`}
-                >
-                  {filter.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Control buttons */}
         <div className="flex justify-center gap-2">
           <Button
@@ -334,16 +299,6 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
           >
             <Flip className="mr-2 h-4 w-4" />
             {isMirrored ? "Non-Mirror" : "Mirror"}
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-            disabled={!isCameraReady || countdown !== null}
-            className="px-3"
-          >
-            <Sparkles className="mr-2 h-4 w-4" />
-            Filter
           </Button>
 
           <Button onClick={startCountdown} disabled={!isCameraReady || countdown !== null}>
