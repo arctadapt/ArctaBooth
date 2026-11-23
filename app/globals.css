@@ -306,3 +306,16 @@
 .finishing-filter-option:focus-visible{outline:3px solid #7cb3ff;outline-offset:2px}
 @media(max-width:420px){.finishing-filter-grid{gap:5px}.finishing-filter-panel{padding:9px}.finishing-filter-name{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.finishing-filter-option{transition:none}}
+
+/* Landing: fill generous desktop viewports without changing the mobile composition. */
+@media(min-width:1024px) and (min-height:780px){
+ .booth-app:not(.booth-in-session){min-height:100dvh}
+ .booth-app:not(.booth-in-session) .booth-shell{min-height:calc(100dvh - 32px);display:flex;flex-direction:column}
+ .booth-app:not(.booth-in-session) .booth-nav{flex-shrink:0}
+ .booth-app:not(.booth-in-session) .booth-hero{flex:1;min-height:0;display:flex;align-items:center}
+ .booth-app:not(.booth-in-session) .booth-hero>div.relative.z-10{width:100%;min-height:clamp(450px,calc(100dvh - 215px),740px);padding-block:clamp(35px,5vh,85px)}
+ .booth-app:not(.booth-in-session) .hero-art{height:clamp(310px,42vh,510px);max-width:550px}
+ .booth-app:not(.booth-in-session) .hero-strip{width:clamp(140px,13vw,185px)}
+ .booth-app:not(.booth-in-session) .hero-heading{font-size:clamp(4rem,5.2vw,6rem)}
+ .booth-app:not(.booth-in-session) .booth-feature-bar{width:min(100%,940px);flex-shrink:0;margin-bottom:12px}
+}
