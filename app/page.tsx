@@ -318,8 +318,25 @@ export default function Home() {
           <div className="hidden items-center gap-9 text-sm font-medium text-slate-600 md:flex"><button onClick={reset} className="hover:text-blue-600">Home</button><button onClick={() => transition("template")} className="hover:text-blue-600">Photobooth</button><span className="text-slate-400">Made for memories</span></div>
           
         </header>
-        {phase && <div className="mx-auto mb-2 flex max-w-sm items-center justify-between rounded-xl border bg-white px-5 py-3 text-sm text-slate-900"><strong>{phase === "template" ? "Pilih Template" : phase === "capture" ? "Sesi Foto" : "Finishing"}</strong><span className="font-mono text-xl font-bold text-blue-600" role="timer">{timeText}</span></div>}
-        {step !== "welcome" && <nav aria-label="Tahap sesi" className="booth-steps mb-4 flex flex-wrap justify-center gap-2 text-xs sm:text-sm">{(["template", "capture", "finishing", "download"] as Step[]).map((item, index) => <div key={item} className={"rounded-full border px-3 py-2 " + (step === item ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground")}>{index + 1}. {({ template: "Template", capture: "Foto", finishing: "Finishing", download: "Hasil" } as Record<string, string>)[item]}</div>)}</nav>}
+        {step !== "welcome" && <div className="session-progress mx-auto mb-5 w-full max-w-4xl">
+          <div className="session-progress-top">
+            <div className="session-progress-label"><Sparkles className="h-4 w-4" /><span>YOUR PHOTO JOURNEY</span></div>
+            {phase && <div className="session-timer" role="timer" aria-label={"Sisa waktu " + timeText}><span className="session-timer-dot" /><span className="session-timer-caption">Time left</span><strong>{timeText}</strong></div>}
+          </div>
+          <nav aria-label="Tahap sesi" className="session-progress-track">
+            {(["template", "capture", "finishing", "download"] as Step[]).map((item, index) => {
+              const currentIndex = (["template", "capture", "finishing", "download"] as Step[]).indexOf(step)
+              const completed = index < currentIndex
+              const active = item === step
+              const title = ({template:"Template",capture:"Foto",finishing:"Finishing",download:"Hasil"} as Record<string,string>)[item]
+              return <div key={item} className={"session-progress-step " + (active ? "is-active " : "") + (completed ? "is-complete" : "")} aria-current={active ? "step" : undefined}>
+                <span className="session-progress-number">{completed ? "✓" : String(index + 1).padStart(2,"0")}</span>
+                <span className="session-progress-name">{title}</span>
+                {index < 3 && <span className="session-progress-line" aria-hidden="true"><span className={completed ? "is-filled" : ""} /></span>}
+              </div>
+            })}
+          </nav>
+        </div>}
 
         {step === "welcome" && <>
           <section className="booth-hero relative overflow-hidden"><div className="hero-orbit hero-orbit-one" /><div className="hero-orbit hero-orbit-two" /><div className="relative z-10 grid min-h-[475px] items-center gap-8 px-7 py-12 md:grid-cols-[.94fr_1.06fr] md:px-14 md:py-16"><div className="max-w-lg"><div className="hero-eyebrow"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> YOUR OWN LITTLE PHOTO STUDIO <Sparkles className="h-4 w-4" /></div><h1 className="hero-heading mt-6">Every moment<br /><em>is yours.</em></h1><p className="mt-5 max-w-sm text-sm leading-7 text-slate-600 md:text-base">Choose a template, capture freely, and make the memories yours.</p><button onClick={() => transition("template")} className="hero-cta mt-7">Start Photobooth <span className="cta-arrow"><ArrowRight className="h-4 w-4" /></span></button><p className="mt-5 flex items-center gap-2 text-xs text-slate-500"><ShieldCheck className="h-4 w-4 text-blue-600" /> No sign up. No installation. Just memories.</p></div><div className="hero-art relative mx-auto h-[315px] w-full max-w-[520px] md:h-[385px]" aria-label="Ilustrasi photo strip"><div className="hero-glow" /><div className="hero-strip hero-strip-back"><div className="mock-photo mock-photo-a"><Heart /></div><div className="mock-photo mock-photo-b"><Sparkles /></div><div className="mock-photo mock-photo-c"><Camera /></div><span>sweet memories ♡</span></div><div className="hero-strip hero-strip-front"><div className="mock-photo mock-photo-d"><Sparkles /></div><div className="mock-photo mock-photo-e"><Heart /></div><div className="mock-photo mock-photo-f"><Aperture /></div><span>arctabooth · 2026</span></div><div className="hero-sticker hero-sticker-one">✦</div><div className="hero-sticker hero-sticker-two">♡</div></div></div></section>
