@@ -340,34 +340,19 @@ export default function CameraView({ onCapture, autoCapture = false, remainingPh
       {recordingError && <p role="alert" className="mt-2 text-sm text-red-600">{recordingError}</p>}
       {recording && <p className="mt-2 text-center text-sm font-semibold text-red-600">● Merekam video kamera. Video sesi direkam otomatis.</p>}
 
-      <div className="mt-3">
-        {/* Control buttons */}
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button
-            variant="outline"
-            onClick={switchCamera}
-            disabled={!isCameraReady || countdown !== null || (autoCapture && sessionStarted)}
-            className="px-3"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Ganti Kamera
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={toggleMirror}
-            disabled={!isCameraReady || countdown !== null}
-            className="px-3"
-          >
-            <Flip className="mr-2 h-4 w-4" />
-            {isMirrored ? "Non-Mirror" : "Mirror"}
-          </Button>
-
-          <Button onClick={startCountdown} disabled={!isCameraReady || countdown !== null}>
-            <Camera className="mr-2 h-4 w-4" />
-            {autoCapture ? (sessionStarted ? "Sesi Berjalan" : "Mulai Sesi Foto") : "Ambil Foto"}
-          </Button>
+      <div className="camera-toolbar mt-3" aria-label="Kontrol kamera">
+        <div className="camera-toolbar-options">
+          <button type="button" onClick={switchCamera} disabled={!isCameraReady || countdown !== null || (autoCapture && sessionStarted)} className="camera-tool" title="Ganti kamera">
+            <RefreshCw className="h-4 w-4" /><span>Ganti Kamera</span>
+          </button>
+          <button type="button" onClick={toggleMirror} disabled={!isCameraReady || countdown !== null} className={"camera-tool " + (isMirrored ? "camera-tool-active" : "")} title={isMirrored ? "Matikan mirror" : "Aktifkan mirror"} aria-pressed={isMirrored}>
+            <Flip className="h-4 w-4" /><span>{isMirrored ? "Mirror On" : "Mirror Off"}</span>
+          </button>
         </div>
+        <button type="button" onClick={startCountdown} disabled={!isCameraReady || countdown !== null} className="camera-shutter">
+          <span className="camera-shutter-icon"><Camera className="h-5 w-5" /></span>
+          <span>{countdown !== null ? "Bersiap..." : autoCapture ? (sessionStarted ? "Sesi Berjalan" : "Mulai Sesi Foto") : "Ambil Foto"}</span>
+        </button>
       </div>
     </div>
   )
